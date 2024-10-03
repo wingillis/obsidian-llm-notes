@@ -1,0 +1,160 @@
+import type AiNotes from "main";
+import { PluginSettingTab, Setting } from "obsidian";
+import type { ListResponse } from "ollama";
+import ollama from "ollama";
+
+
+export interface AiNotesSettings {
+	selected_llm: string;
+	selected_embedding: string;
+	chunk_size: number;
+	chunk_overlap: number;
+	use_context: boolean;
+	similar_notes_search_limit: number;
+	similarity_threshold: number;
+	llm_folder: string;
+	debug: boolean;
+}
+
+export const DEFAULT_SETTINGS: Partial<AiNotesSettings> = {
+	selected_llm: 'llama3.1',
+	selected_embedding: 'all-minilm',
+	chunk_size: 512,
+	chunk_overlap: 128,
+	use_context: true,
+	similar_notes_search_limit: 15,
+	similarity_threshold: 0.25,
+	llm_folder: 'llm-chats',
+	debug: false,
+}
+
+
+export default class AiNotesSettingsTab extends PluginSettingTab {
+	plugin: AiNotes;
+
+	constructor(plugin: AiNotes) {
+		super(plugin.app, plugin);
+		this.plugin = plugin;
+	}
+
+	display(): void {
+		const { containerEl } = this;
+
+		containerEl.empty();
+
+		new Setting(containerEl)
+			.setName("Default LLM")
+			.setDesc("Set the default LLM model from Ollama to use")
+			.addDropdown(async (dropdown) => {
+				const response: ListResponse = await ollama.list();
+				// @ts-ignore
+				dropdown.addOptions(response.models.map((model) => {
+					return model.name;
+				}))
+					.setValue(response.models.findIndex((model) => model.name === this.plugin.settings.selected_llm).toString())
+					.onChange(async (value: string) => {
+						this.plugin.settings.selected_llm = response.models[parseInt(value)].name;
+						await this.plugin.saveSettings();
+					})
+			});
+
+		new Setting(containerEl)
+			.setName("Default embedding model")
+			.setDesc("Set the default embedding model from Ollama to use")
+			.addText(text => text
+				.setPlaceholder("Enter model name")
+				.setValue(this.plugin.settings.selected_embedding)
+				.onChange(async (value) => {
+					this.plugin.settings.selected_embedding = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Embedding chunk size (characters)')
+			.setDesc('Set the number of characters to use for each embedding chunk. Token embeddings are typically about 4 characters.')
+			.addText(text => text
+				.setPlaceholder('Enter chunk size')
+				.setValue(`${this.plugin.settings.chunk_size}`)
+				.onChange(async (value) => {
+					this.plugin.settings.chunk_size = parseInt(value);
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Embedding chunk overlap (characters)')
+			.setDesc('Set the number of characters for overlapping subsequent embedding chunks')
+			.addText(text => text
+				.setPlaceholder('Enter chunk overlap size')
+				.setValue(`${this.plugin.settings.chunk_overlap}`)
+				.onChange(async (value) => {
+					this.plugin.settings.chunk_overlap = parseInt(value);
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Use context for embeddings')
+			.setDesc('Include document context for chunk-level embeddings. WARNING: document processing for search is significantly slower when enabled.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.use_context)
+				.onChange(async (value) => {
+					this.plugin.settings.use_context = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Similar notes search limit')
+			.setDesc('Set the number of similar notes to search for')
+			.addText(text => text
+				.setPlaceholder('Enter search limit')
+				.setValue(`${this.plugin.settings.similar_notes_search_limit}`)
+				.onChange(async (value) => {
+					this.plugin.settings.similar_notes_search_limit = parseInt(value);
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Similarity threshold')
+			.setDesc('Set the similarity threshold for filtering useful search results')
+			.addText(text => text
+				.setPlaceholder('Enter similarity threshold')
+				.setValue(`${this.plugin.settings.similarity_threshold}`)
+				.onChange(async (value) => {
+					this.plugin.settings.similarity_threshold = parseFloat(value);
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('LLM chat folder')
+			.setDesc('Set the folder to store LLM chat files as markdown notes')
+			.addText(text => text
+				.setPlaceholder('Enter LLM folder')
+				.setValue(this.plugin.settings.llm_folder)
+				.onChange(async (value) => {
+					this.plugin.settings.llm_folder = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Reset database')
+			.setDesc('Resets the database. All data will be lost. Mostly used for development.')
+			// make a button that raises an alert to confirm reset
+			.addButton(button => button
+				.setButtonText('Reset database')
+				.onClick(async () => {
+					if (confirm('Are you sure you want to reset the database? All data will be lost.')) {
+						this.plugin.resetDatabase();
+					}
+				}));
+
+		new Setting(containerEl)
+			.setName('Debug')
+			.setDesc('Enable debug mode. Logs will be printed to dev console')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.debug)
+				.onChange(async (value) => {
+					this.plugin.settings.debug = value;
+					await this.plugin.saveSettings();
+				}));
+	}
+}
+
