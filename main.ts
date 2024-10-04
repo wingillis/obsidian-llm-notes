@@ -64,8 +64,8 @@ export default class AiNotes extends Plugin {
 		this.milvus_client = new MilvusClient({
 			address: "localhost:19530",
 			protoFilePath: {
-				schema: path.resolve(basePath, ".obsidian/plugins/ai-notes/proto/schema.proto"),
-				milvus: path.resolve(basePath, ".obsidian/plugins/ai-notes/proto/milvus.proto"),
+				schema: path.resolve(basePath, ".obsidian/plugins/obsidian-llm-notes/proto/schema.proto"),
+				milvus: path.resolve(basePath, ".obsidian/plugins/obsidian-llm-notes/proto/milvus.proto"),
 			}
 		});
 		await setupDatabase(this.milvus_client, this.settings);
