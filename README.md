@@ -1,6 +1,6 @@
 # Obsidian LLM notes
 
-<div style="text-align: center">
+<div style="text-align: center" align="center">
 
 ![logo](assets/obsidian-llm-notes-logo.webp)
 
