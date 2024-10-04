@@ -4,7 +4,7 @@
 	"version": "0.0.1",
 	"minAppVersion": "1.6.0",
 	"description": "Adds private/local LLM capabilities to Obsidian notes.",
-	"author": "Winthrop Gillis",
+	"author": "Winthrop Gillis (@wingillis)",
 	"authorUrl": "https://github.com/wingillis/obsidian-llm-notes",
 	"isDesktopOnly": true
 }

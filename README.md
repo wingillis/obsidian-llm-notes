@@ -1,10 +1,16 @@
 # Obsidian LLM notes
 
+<div style="text-align: center">
+
+![logo](assets/obsidian-llm-notes-logo.webp)
+
+</div>
+
 LLM notes is an Obsidian plugin that integrates **private** and **local** large language models (LLMs) to enhance:
 
 - Search via text embeddings
 - Synthesis via chat-like interactions
-- Note similarity via semantic similarity 
+- Note similarity via semantic similarity
 - Summarization via retrieval-based methods
 
 ## Limitations
@@ -28,7 +34,6 @@ LLM notes is an Obsidian plugin that integrates **private** and **local** large 
 ### Milvus/Docker
 
 Milvus is a performant vector database that LLM notes uses to store note embeddings.
-
 
 1. Install Docker on your system.
 2. Follow the installation instructions for `milvus` [here](https://milvus.io/docs/install_standalone-docker.md).
@@ -143,4 +148,3 @@ However, there are a few key differences between LLM notes and these plugins:
 - **Privacy**: LLM notes is designed to work **only** offline with local LLMs and does not support any cloud-based LLMs.
 - **Clear organization**: LLM notes is designed to be simple and focused, with few installation dependencies. If there is a feature you want implemented, I hope that you can easily fork this repository and add it yourself.
 - **Exposed LLM pipeline**: The search and chat features are not hidden behind `langchain` or API calls. The pipeline used is clearly defined in the code, and can be easily modified to experiment with more sophisticated approaches.
-
