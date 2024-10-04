@@ -76,7 +76,7 @@ export default class AiNotes extends Plugin {
 			this.registering_files = false;
 		});
 
-		// periodically check for modified files every 30 seconds
+		// periodically check for modified files every 45 seconds
 		this.registerInterval(window.setInterval(async () => {
 			if (!this.registering_files) {
 				this.registering_files = true;

@@ -18,13 +18,70 @@ However, there are a few key differences between LLM notes and these plugins:
 
 ## Installation
 
+### Overview
+
+1. Make sure node is installed on your system.
+2. Download this repository and extract it to your Obsidian vault's `.obsidian/plugins` directory.
+3. Install Docker, download the `milvus` image, and run the container.
+4. Install `ollama` and run the server.
+
 ### Requirements
 
+#### Plugin
+
+1. Download this plugin and extract it to your Obsidian vault's `.obsidian/plugins` directory.
+2. Run `npm install` in the plugin's directory to install the dependencies.
+3. Run `npm run build` to build the plugin, creating the necessary `main.js` file.
+
+**Don't enable the plugin in Obsidian yet - we need to set up `ollama` and `milvus` first.**
+
+#### Milvus/Docker
+
+1. Install Docker on your system.
+2. Follow the installation instructions for `milvus` [here](https://milvus.io/docs/install_standalone-docker.md).
+
+Start the `milvus` container with the following command (also found in the installation instructions):
+
+```bash
+curl -sfL https://raw.githubusercontent.com/milvus-io/milvus/master/scripts/standalone_embed.sh -o standalone_embed.sh
+
+bash standalone_embed.sh start
+```
+
+If you feel uncomfortable running this script, I encourage you to read it first, and/or analyze the contents with your favorite LLM.
+
+#### ollama
+
+1. Follow the installation instructions for `ollama` [here](https://ollama.com/download).
+If on a Mac, you can also install `ollama` with [Homebrew](https://formulae.brew.sh/formula/ollama) `brew install ollama`.
+2. Run the server if it's not already running: `ollama serve`. I prefer to set a few environment variables before running the server:
+
+```bash
+OLLAMA_FLASH_ATTENTION=true OLLAMA_MAX_LOADED_MODELS=2 OLLAMA_NUM_PARALLEL=2 ollama serve
+```
+
+3. Download a language and embedding model of your choice.
+I recommend `llama3.2` and `all-minilm`.
+
+```bash
+# in a new terminal window while "ollama serve" is running
+ollama pull all-minilm
+ollama pull llama3.2
+```
+
 ### Limitations
+
+- Currently, this plugin must be installed manually. There are a few issues with dependencies that I need to resolve before I can publish it to the Obsidian community plugins service.
+- **Only ollama will be supported** for LLM interactions. This greatly reduces the complexity of this plugin.
+- Milvus is required - without it, the plugin will not work.
+- There aren't sophisticated error handling procedures in place yet. You need to make sure you install and set up all the requirements before trying to use the plugin.
 
 ## Features
 
 ### Search
+
+The search feature opens a modal that allows you to use keywords, phrases, or questions to search for the most relevant notes in your Obsidian vault.
+Open the modal from the command palette.
 
 ### Chat
 
@@ -35,12 +92,27 @@ Using the Chat view, you can interact with your notes in a few supported ways:
 
 **Note**: you can use only one of these methods at a time.
 
+All chats are stored in the `llm-chat` folder in your Obsidian vault.
+You can change this folder in the settings.
+Saved chats are ignored by LLM notes.
+
 #### The `@workspace` command
 
-When you type `@` in the chat view, a window will pop up, giving you the currently supported keyword commands (which is only `@workspace` at the moment).
+When you type `@` in the chat view, a window will pop up, showing the currently supported keyword commands (which is only `@workspace` at the moment).
+Clicking on the keyword will insert it into the chat.
+Alternatively, pressing `tab` will insert the top-most keyword from the window into the chat.
 Typing `@workspace` will enable the chat to integrate the most relevant notes from your Obsidian vault into the prompt sent to the LLM, and enhance the quality of model's response.
 
+#### Linking to files
+
+When you type `[[` in the chat view, a window will pop up, showing a list of all notes that contain the characters you've typed so far.
+Clicking on a note will insert a link to that note in the chat.
+Alternatively, pressing `tab` will insert the top-most note from the window into the chat.
+Linking to notes will add the entire contents of the linked note to the prompt sent to the LLM, allowing you to interact with the note's contents.
+
 ### Similar notes
+
+This feature opens a view that shows the most similar notes to the current note.
 
 ## Usage
 
@@ -54,3 +126,9 @@ If you don't want to use this feature, you can disable it in the settings.
 ### Command palette
 
 LLM chat adds a few commands to the command palette:
+
+- Embedding-based file search: opens a modal to allow the user to use keywords, phrases, or questions to search for the most relevant notes in their Obsidian vault.
+- Chat with LLM: opens a chat view to interact with the LLM.
+- Similar notes: opens a a view to show the most similar notes to the current note.
+- New chat: begins a new chat session with the LLM.
+- Summarize note: begins a new chat session where the first response from the LLM summarizes the current note.
