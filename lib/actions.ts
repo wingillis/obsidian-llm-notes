@@ -138,7 +138,6 @@ async function processForReferencedFiles(vault: Vault, last_msg: string) {
 
     // use regex to replace [[ or ]] with empty string
     const cleaned_last_msg = last_msg.replace(/\[\[(.*?)(\.md)?\]\]/g, "$1");
-    console.log("Cleaned last message:", cleaned_last_msg);
 
     // if there are referenced files, make new prompt with referenced files at the beginning
     if (referenced_files && referenced_files.length > 0) {
