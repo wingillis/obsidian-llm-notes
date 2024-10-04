@@ -67,6 +67,14 @@ ollama pull all-minilm
 ollama pull llama3.2
 ```
 
+### Plugin (continued)
+
+Once you have `ollama` and `milvus` set up, you can enable the plugin in Obsidian.
+
+However, the first time you run the plugin will fail because you haven't selected a language model yet.
+First, open the settings for the plugin and select the language model you want to use.
+Then, restart Obsidian and the plugin should work.
+
 ## Features
 
 ### Search
