@@ -19,8 +19,9 @@ LLM notes is an Obsidian plugin that integrates **private** and **local** large 
 ### Plugin
 
 1. Download this plugin and extract it to your Obsidian vault's `.obsidian/plugins` directory.
-2. Run `npm install` in the plugin's directory to install the dependencies.
-3. Run `npm run build` to build the plugin, creating the necessary `main.js` file.
+2. Make sure node is installed on your system.
+3. Run `npm install` in the plugin's directory to install the dependencies.
+4. Run `npm run build` to build the plugin, creating the necessary `main.js` file.
 
 **Don't enable the plugin in Obsidian yet - we need to set up `ollama` and `milvus` first.**
 
