@@ -7,27 +7,16 @@ LLM notes is an Obsidian plugin that integrates **private** and **local** large 
 - Note similarity via semantic similarity 
 - Summarization via retrieval-based methods
 
-There are already several plugins that exist for Obsidian that integrate with LLMs, such as [Smart Connections](https://github.com/brianpetro/obsidian-smart-connections)
-and [Smart Second Brain](https://github.com/your-papa/obsidian-Smart2Brain).
-I'm not attempting to compete or replace these plugins, although we all offer similar features.
-However, there are a few key differences between LLM notes and these plugins:
+## Limitations
 
-- **Privacy**: LLM notes is designed to work **only** offline with local LLMs and does not support any cloud-based LLMs.
-- **Clear organization**: LLM notes is designed to be simple and focused, with few installation dependencies. If there is a feature you want implemented, I hope that you can easily fork this repository and add it yourself.
-- **Exposed LLM pipeline**: The search and chat features are not hidden behind `langchain` or API calls. The pipeline used is clearly defined in the code, and can be easily modified to experiment with more sophisticated approaches.
+- Currently, this plugin must be installed manually. There are a few issues with dependencies that I need to resolve before I can publish it to the Obsidian community plugins service.
+- **Only ollama will be supported** for LLM interactions. This greatly reduces the complexity of this plugin.
+- Milvus is required - without it, the plugin will not work.
+- There aren't sophisticated error handling procedures in place yet. You need to make sure you install and set up all the requirements before trying to use the plugin.
 
-## Installation
+## Installation and requirements
 
-### Overview
-
-1. Make sure node is installed on your system.
-2. Download this repository and extract it to your Obsidian vault's `.obsidian/plugins` directory.
-3. Install Docker, download the `milvus` image, and run the container.
-4. Install `ollama` and run the server.
-
-### Requirements
-
-#### Plugin
+### Plugin
 
 1. Download this plugin and extract it to your Obsidian vault's `.obsidian/plugins` directory.
 2. Run `npm install` in the plugin's directory to install the dependencies.
@@ -35,7 +24,10 @@ However, there are a few key differences between LLM notes and these plugins:
 
 **Don't enable the plugin in Obsidian yet - we need to set up `ollama` and `milvus` first.**
 
-#### Milvus/Docker
+### Milvus/Docker
+
+Milvus is a performant vector database that LLM notes uses to store note embeddings.
+
 
 1. Install Docker on your system.
 2. Follow the installation instructions for `milvus` [here](https://milvus.io/docs/install_standalone-docker.md).
@@ -50,7 +42,7 @@ bash standalone_embed.sh start
 
 If you feel uncomfortable running this script, I encourage you to read it first, and/or analyze the contents with your favorite LLM.
 
-#### ollama
+### ollama
 
 1. Follow the installation instructions for `ollama` [here](https://ollama.com/download).
 If on a Mac, you can also install `ollama` with [Homebrew](https://formulae.brew.sh/formula/ollama) `brew install ollama`.
@@ -69,21 +61,18 @@ ollama pull all-minilm
 ollama pull llama3.2
 ```
 
-### Limitations
-
-- Currently, this plugin must be installed manually. There are a few issues with dependencies that I need to resolve before I can publish it to the Obsidian community plugins service.
-- **Only ollama will be supported** for LLM interactions. This greatly reduces the complexity of this plugin.
-- Milvus is required - without it, the plugin will not work.
-- There aren't sophisticated error handling procedures in place yet. You need to make sure you install and set up all the requirements before trying to use the plugin.
-
 ## Features
 
 ### Search
+
+Input a keyword, phrase, or question to search for the most relevant notes in your Obsidian vault.
 
 The search feature opens a modal that allows you to use keywords, phrases, or questions to search for the most relevant notes in your Obsidian vault.
 Open the modal from the command palette.
 
 ### Chat
+
+Chat with an LLM that has access to your Obsidian vault.
 
 Using the Chat view, you can interact with your notes in a few supported ways:
 
@@ -112,9 +101,9 @@ Linking to notes will add the entire contents of the linked note to the prompt s
 
 ### Similar notes
 
-This feature opens a view that shows the most similar notes to the current note.
+View the most similar notes to the current note based on semantic similarity.
 
-## Usage
+This feature opens a view that shows the most similar notes to the current note.
 
 ### First-time setup
 
@@ -127,8 +116,30 @@ If you don't want to use this feature, you can disable it in the settings.
 
 LLM chat adds a few commands to the command palette:
 
-- Embedding-based file search: opens a modal to allow the user to use keywords, phrases, or questions to search for the most relevant notes in their Obsidian vault.
-- Chat with LLM: opens a chat view to interact with the LLM.
-- Similar notes: opens a a view to show the most similar notes to the current note.
-- New chat: begins a new chat session with the LLM.
-- Summarize note: begins a new chat session where the first response from the LLM summarizes the current note.
+- **Embedding-based file search**: opens a modal to allow the user to use keywords, phrases, or questions to search for the most relevant notes in their Obsidian vault.
+- **Chat with LLM**: opens a chat view to interact with the LLM.
+- **Similar notes**: opens a a view to show the most similar notes to the current note.
+- **New chat**: begins a new chat session with the LLM.
+- **Summarize note**: begins a new chat session where the first response from the LLM summarizes the current note.
+
+## Future directions
+
+Some ideas I have for future development:
+
+- Add generation capabilities to the editor
+- Better error handling
+- PDF support
+
+I may not have time to implement these features. If you're interested in contributing, feel free to fork this repository and add them yourself.
+
+## Comparison to other plugins
+
+There are already several plugins that exist for Obsidian that integrate with LLMs, such as [Smart Connections](https://github.com/brianpetro/obsidian-smart-connections)
+and [Smart Second Brain](https://github.com/your-papa/obsidian-Smart2Brain).
+I'm not attempting to compete or replace these plugins, although we all offer similar features.
+However, there are a few key differences between LLM notes and these plugins:
+
+- **Privacy**: LLM notes is designed to work **only** offline with local LLMs and does not support any cloud-based LLMs.
+- **Clear organization**: LLM notes is designed to be simple and focused, with few installation dependencies. If there is a feature you want implemented, I hope that you can easily fork this repository and add it yourself.
+- **Exposed LLM pipeline**: The search and chat features are not hidden behind `langchain` or API calls. The pipeline used is clearly defined in the code, and can be easily modified to experiment with more sophisticated approaches.
+
