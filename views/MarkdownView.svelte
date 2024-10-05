@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from "svelte";
 	import { MarkdownRenderer, type App } from "obsidian";
-	import type { ItemView } from "obsidian";
 
 	export let markdownContent: string = "";
 	export let app: App;

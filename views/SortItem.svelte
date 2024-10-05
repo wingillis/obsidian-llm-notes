@@ -13,8 +13,11 @@
 		(value: AiNoteSections[]) => (note_sections = value),
 	);
 
-	function handleResultClick(file: TFile) {
-		plugin.app.workspace.getLeaf().openFile(file);
+	function handleResultClick(e: MouseEvent, file: TFile) {
+        // if control/command was pressed, open the file in a new pane
+        const inNewLeaf = e.button === 1 || e.ctrlKey || e.metaKey;
+		plugin.app.workspace.openLinkText(file.path, "Sort Item", inNewLeaf);
+        e.preventDefault();
 	}
 
     onMount(async () => {
@@ -37,11 +40,11 @@
         <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
         <div
             class="tree-item-self is-clickable nav-file-title"
-            on:click={() => handleResultClick(result.file)}
+            on:click={(e) => handleResultClick(e, result.file)}
             role="contentinfo"
         >
             <div class="llm-notes-flex">
-                <div>{result.file_path}</div>
+                <div>{result.file_path.replace(".md", "")}</div>
                 <small class="llm-notes-summary">{result.chunk.contents}</small>
             </div>
         </div>
