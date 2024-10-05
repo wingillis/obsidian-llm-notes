@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { onMount } from "svelte";
 	import { MarkdownRenderer, type App } from "obsidian";
+	import type { ItemView } from "obsidian";
 
 	export let markdownContent: string = "";
 	export let app: App;
-	export let selfref: any;
+	export let item_view: ItemView;
 
     let cleaned_content: string = "";
 
@@ -29,7 +30,7 @@
 				cleaned_content,
 				containerEl,
 				"Chat View.md",
-				selfref,
+				item_view,
 			);
 		}
 	}

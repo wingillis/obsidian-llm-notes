@@ -3,11 +3,11 @@
 	import store from "lib/store";
 	import type { ChatMessage } from "main";
 	import { afterUpdate, onMount } from "svelte";
-	import type { TFile } from "obsidian";
+	import type { TFile, ItemView } from "obsidian";
 	import { sequenceMatchingSearch } from "lib/search";
 	import MarkdownView from "views/MarkdownView.svelte";
 
-	let view: MarkdownView;
+	export let self_item_view: ItemView;
 	let textAreaRef: HTMLTextAreaElement;
 	let chatAreaRef: HTMLDivElement;
 	let chat_messages: ChatMessage[];
@@ -178,7 +178,7 @@
 		{#each chat_messages as msg (msg.id)}
 			<div class="llm-notes-chat-message llm-notes-chat-{msg.role}">
 				<b>{msg.role}</b>
-				<MarkdownView markdownContent={msg.message} app={plugin.app} bind:this={view} selfref={view} />
+				<MarkdownView markdownContent={msg.message} app={plugin.app} item_view={self_item_view} />
 			</div>
 		{/each}
 		{#if chat_messages.length > 0 && chat_messages[chat_messages.length - 1].role === "user"}

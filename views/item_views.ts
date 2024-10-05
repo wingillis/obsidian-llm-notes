@@ -68,6 +68,9 @@ export class AiChatView extends ItemView {
 		store.plugin.set(this.plugin);
 		this.component = new ChatView({
 			target: this.contentEl,
+			props: {
+				self_item_view: this,
+			},
 		});
 	}
 

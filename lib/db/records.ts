@@ -68,7 +68,7 @@ async function addChunksToDB(file: FileRecord, settings: AiNotesSettings, client
 
         const record = {
             chunk: json_obj,
-            chunk_length: chunk.length,
+            chunk_length: chunk.trim().length,
             timestamp: Date.now(),
             file_path: file.path,
             chunk_hash: chunk_hash,
