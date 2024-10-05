@@ -6,7 +6,9 @@ export async function getContext(contents: string, model: string, context_window
 <document>
 ${contents}
 </document>
-From the document above, provide a short succinct summary of the document that adds useful context.`
+
+The above document contains notes written by me.
+Using the document above, provide a short succinct summary that adds useful context.`
 
     const ctx_len: number = Math.ceil(prompt.length / 4);
 

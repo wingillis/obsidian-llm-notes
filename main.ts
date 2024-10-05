@@ -233,13 +233,13 @@ export default class AiNotes extends Plugin {
 			return;
 		}
 
+		store.note_sections.set([]);
+
 		// if note from chat history, don't run
 		if (file.path.contains(`${this.settings.llm_folder}/`)) {
 			if (this.settings.debug) console.log("File from chat history");
 			return;
 		}
-
-		store.note_sections.set([]);
 
 		const similar_sections: AiNoteSections[] = await findSimilarFileChunks(this.app.vault, this.settings, this.milvus_client, file);
 

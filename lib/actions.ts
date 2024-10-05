@@ -30,7 +30,7 @@ export async function findSimilarFileChunks(vault: Vault, settings: AiNotesSetti
         collection_name: "ai_notes",
         data: [file_embedding],
         limit: settings.similar_notes_search_limit,
-        filter: `file_path != '${file.path}'`,
+        filter: `(file_path != '${file.path}') and chunk_length > 0`,
         params: {
             radius: settings.similarity_threshold,
             range: 1,
