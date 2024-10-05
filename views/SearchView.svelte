@@ -1,6 +1,7 @@
 <script lang="ts">
     import type AiNotes from "main";
-    import type { AiNoteSections, AiNotesSearchModal } from "main";
+    import type { AiNoteSections } from "main";
+    import type { AiNotesSearchModal } from "views/item_views";
     import store from "lib/store";
 	import type { TFile } from "obsidian";
 
@@ -30,8 +31,11 @@
         }, debounceDelay);
     }
 
-    function openFileCloseModal(file: TFile) {
-        plugin.app.workspace.getLeaf().openFile(file);
+    function openFileCloseModal(e: MouseEvent, file: TFile) {
+
+        const inNewLeaf = e.button === 1 || e.ctrlKey || e.metaKey;
+		plugin.app.workspace.openLinkText(file.path, "Sort Item", inNewLeaf);
+
         modal.close();
     }
 </script>
@@ -44,12 +48,18 @@
             <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
             <div
                 class="tree-item-self is-clickable nav-file-title"
-                on:click={() => openFileCloseModal(result.file)}
+                on:click={(e) => openFileCloseModal(e, result.file)}
                 role="contentinfo"
             >
                 <div class="llm-notes-flex">
-                    <div>{result.file_path}</div>
-                    <small class="llm-notes-summary">{result.chunk.contents}</small>
+                    <div>{result.file_path.replace(".md", "")}</div>
+                    <small class="llm-notes-summary">
+                        {#if result.chunk.contents.length > 0}
+                            {result.chunk.contents}
+                        {:else}
+                            <i>File empty</i>
+                        {/if}
+                    </small>
                 </div>
             </div>
         {/each}

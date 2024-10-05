@@ -77,7 +77,8 @@ export async function findSimilarChunksFromQuery(vault: Vault, settings: AiNotes
     const similar_chunks: SearchResults = await client.search({
         collection_name: "ai_notes",
         data: [embedding],
-        limit: settings.similar_notes_search_limit,
+        limit: 100,
+        filter: "chunk_length > 0",
         params: {
             radius: settings.similarity_threshold,
             range: 1,
@@ -86,7 +87,7 @@ export async function findSimilarChunksFromQuery(vault: Vault, settings: AiNotes
     });
 
     // re-rank search results using TF-IDF
-    const ranked_results = rerankResults(query, similar_chunks.results, settings);
+    const ranked_results = rerankResults(query, similar_chunks.results, settings).slice(0, settings.similar_notes_search_limit);
 
     if (settings.debug) console.log("Search query: similar chunk results:", ranked_results);
 
@@ -234,7 +235,7 @@ function TF_IDFRank(query: string, results: SearchResultData[], settings: AiNote
         for (let j = 0; j < tf_idf_scores.length; j++) {
             sum += tf_idf_scores[j].scores[i];
         }
-        avg_scores.push({score: sum / tf_idf_scores.length, index: i});
+        avg_scores.push({ score: sum / tf_idf_scores.length, index: i });
     }
     if (settings.debug) console.log("Average scores:", avg_scores);
 
