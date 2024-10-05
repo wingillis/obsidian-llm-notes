@@ -60,6 +60,7 @@ export default class AiNotes extends Plugin {
 		}
 
 		if (this.settings.start_application) {
+			this.status_bar_item.setText('LLM(🔄)');
 			this.initDb();
 
 			this.setupViews();
@@ -129,7 +130,7 @@ export default class AiNotes extends Plugin {
 	private setupStatusBar() {
 		// Does not work on mobile apps.
 		this.status_bar_item = this.addStatusBarItem();
-		this.status_bar_item.setText('LLM(🔄)');
+		this.status_bar_item.setText('LLM(❌)');
 	}
 
 	private setupCommands() {

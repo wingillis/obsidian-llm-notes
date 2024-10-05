@@ -19,7 +19,7 @@ export async function findSimilarFileChunks(vault: Vault, settings: AiNotesSetti
 
     // if not in db, add to db
     if (file_res.data.length === 0) {
-        let output = await processFile(file, vault, settings, client);
+        const output = await processFile(file, vault, settings, client);
         file_embedding = output?.file_output.embedding;
     } else {
         file_embedding = file_res.data[0].embedding;

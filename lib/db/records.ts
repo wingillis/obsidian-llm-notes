@@ -19,7 +19,6 @@ async function addChunksToDB(file: FileRecord, settings: AiNotesSettings, client
 
     const { chunk_size, chunk_overlap } = settings;
     const offset: number = chunk_size - chunk_overlap;
-    const ctx_size: number = Math.ceil(chunk_size / 4);
 
     // compute total number of chunks
     let num_chunks = Math.ceil(file.contents.length / offset);
@@ -28,7 +27,7 @@ async function addChunksToDB(file: FileRecord, settings: AiNotesSettings, client
         num_chunks = 1;
     }
 
-    let context: string | null = null;
+    let context: string = "";
     if (num_chunks > 1) {
         context = await getContext(file.contents, settings.selected_llm, settings.context_window);
         if (settings.debug) console.log("Summary:", context);
@@ -40,11 +39,11 @@ async function addChunksToDB(file: FileRecord, settings: AiNotesSettings, client
         const chunk_idx: number = i * offset;
         let chunk: string = file.contents.slice(chunk_idx, chunk_idx + chunk_size);
 
-        let context_chunk;
-        if (context) {
-            context_chunk = `${file.path}\nConext: ${context}\nDocument: ${chunk}`;
+        let context_chunk: string;
+        if (context.length > 0) {
+            context_chunk = `File: ${file.path}\nConext: ${context}\nDocument: ${chunk}`;
         } else {
-            context_chunk = `${file.path}\n${chunk}`;
+            context_chunk = `File: ${file.path}\nDocument: ${chunk}`;
         }
 
         const chunk_hash: string = crypto.createHash("md5").update(context_chunk).digest("hex");
@@ -57,7 +56,7 @@ async function addChunksToDB(file: FileRecord, settings: AiNotesSettings, client
             embed_model: settings.selected_embedding,
         };
         // call ollama to generate embeddings
-        const full_length: number = ctx_size + Math.ceil(context_chunk.length / 4);
+        const full_length: number = Math.ceil(context_chunk.length / 4);
         const response = await ollama.embed({
             model: settings.selected_embedding,
             input: context_chunk,
@@ -69,6 +68,7 @@ async function addChunksToDB(file: FileRecord, settings: AiNotesSettings, client
 
         const record = {
             chunk: json_obj,
+            chunk_length: chunk.length,
             timestamp: Date.now(),
             file_path: file.path,
             chunk_hash: chunk_hash,
@@ -108,6 +108,7 @@ async function addFileToDB(file: FileRecord, settings: AiNotesSettings, client: 
     const record = {
         file_path: file.path,
         file_hash: file.hash,
+        file_length: file.contents.length,
         embedding: embedding,
         modified_time: file.modified_time,
         id: Date.now(),

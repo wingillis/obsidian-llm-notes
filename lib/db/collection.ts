@@ -28,6 +28,7 @@ async function initializeCollection(client: MilvusClient, settings: AiNotesSetti
             { name: "timestamp", data_type: DataType.Int64 },
             { name: "file_path", data_type: DataType.VarChar, max_length: 1000 },
             { name: "file_hash", data_type: DataType.VarChar, max_length: 32 },
+            { name: "chunk_length", data_type: DataType.Int64 },
             { name: "chunk_hash", data_type: DataType.VarChar, max_length: 32 },
             { name: "chunk", data_type: DataType.JSON },
             { name: "modified_time", data_type: DataType.Int64 },
@@ -50,6 +51,7 @@ async function initializeCollection(client: MilvusClient, settings: AiNotesSetti
             { name: "embedding", data_type: DataType.FloatVector, dim: embedding_dim },
             { name: "file_hash", data_type: DataType.VarChar, max_length: 32 },
             { name: "file_path", data_type: DataType.VarChar, max_length: 1000 },
+            { name: "file_length", data_type: DataType.Int64 },
             { name: "modified_time", data_type: DataType.Int64 },
         ]
 
