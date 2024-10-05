@@ -86,10 +86,12 @@ export async function findSimilarChunksFromQuery(vault: Vault, settings: AiNotes
         output_fields: ["file_path", "chunk", "embedding", "file_hash", "timestamp", "id"],
     });
 
-    // re-rank search results using TF-IDF
-    const ranked_results = rerankResults(query, similar_chunks.results, settings).slice(0, settings.similar_notes_search_limit);
+    if (settings.debug) console.log("Search query: similar chunk results:", similar_chunks);
 
-    if (settings.debug) console.log("Search query: similar chunk results:", ranked_results);
+    // re-rank search results using TF-IDF
+    const ranked_results = rerankResults(query, similar_chunks.results, settings);
+
+    if (settings.debug) console.log("Search query: similar chunk results after ranking and slicing:", ranked_results);
 
     let similar_sections: AiNoteSections[] = [];
     // process entries from db, include TFile from obsidian
@@ -179,7 +181,7 @@ ${cleaned_last_msg}
     }
 }
 
-const ACCEPTED_KEYWORDS = ["@workspace", "@file"];
+const ACCEPTED_KEYWORDS = ["@workspace"];
 const STOP_WORDS = new Set(['the', 'is', 'and', 'a', 'to', 'in', 'of', 'for', 'at', 'an', 'on']);
 
 function removeStopWords(text: string): string[] {
@@ -189,22 +191,26 @@ function removeStopWords(text: string): string[] {
 }
 
 function calculateIDF(term: string, results: SearchResultData[]): number {
+    if (results.length === 0) return 0;
+
     const num_docs_with_term = results.filter((result: SearchResultData) => {
         return result.chunk.contents.toLocaleLowerCase().includes(term);
     }).length;
-    return Math.log(results.length / (1 + num_docs_with_term));
+    return Math.log(results.length / (1 + num_docs_with_term)) + 1;
 }
 
 function calculateTF(term: string, document: string): number {
     const words = document.toLocaleLowerCase().split(/\s+/);
     const term_count = words.filter((word) => word === term).length;
-    return term_count / words.length;
+    return Math.log(1 + term_count);
 }
 
 function TF_IDFRank(query: string, results: SearchResultData[], settings: AiNotesSettings) {
     // remove punctuation from query
     query = query.replace(/[.,\/#!$%\^&\*;:{}=\_`~()]/g, "").replace("-", " ");
     const terms = removeStopWords(query);
+
+    if (settings.debug) console.log("Query terms:", terms);
 
     const tf_idf = terms.map(term => {
         const idf: number = calculateIDF(term, results);
@@ -235,7 +241,8 @@ function TF_IDFRank(query: string, results: SearchResultData[], settings: AiNote
         for (let j = 0; j < tf_idf_scores.length; j++) {
             sum += tf_idf_scores[j].scores[i];
         }
-        avg_scores.push({ score: sum / tf_idf_scores.length, index: i });
+        const doc_len = tf_idf_scores.length > 0 ? tf_idf_scores.length : 1;
+        avg_scores.push({ score: sum / doc_len, index: i });
     }
     if (settings.debug) console.log("Average scores:", avg_scores);
 
@@ -256,7 +263,7 @@ function rerankResults(query: string, results: SearchResultData[], settings: AiN
         );
     }).map((result) => results[result.index]);
 
-    return ranked_results.slice(0, settings.similar_notes_search_limit).reverse();
+    return ranked_results.slice(0, settings.similar_notes_search_limit);
 }
 
 async function workspaceRAG(query: string, settings: AiNotesSettings, client: MilvusClient) {
@@ -287,7 +294,8 @@ async function workspaceRAG(query: string, settings: AiNotesSettings, client: Mi
 
     if (settings.debug) console.log("Workspace RAG search results:", similar_chunks);
 
-    const ranked_results = rerankResults(query, similar_chunks.results, settings);
+    // reverse order so most relevant docs are near the query at bottom
+    const ranked_results = rerankResults(query, similar_chunks.results, settings).reverse();
 
     // format and combine documents into a single string
     const document_string = ranked_results.map((result) => {

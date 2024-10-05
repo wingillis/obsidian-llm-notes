@@ -108,7 +108,7 @@ async function addFileToDB(file: FileRecord, settings: AiNotesSettings, client: 
     const record = {
         file_path: file.path,
         file_hash: file.hash,
-        file_length: file.contents.length,
+        file_length: file.contents.trim().length,
         embedding: embedding,
         modified_time: file.modified_time,
         id: Date.now(),
