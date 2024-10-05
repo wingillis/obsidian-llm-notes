@@ -36,7 +36,7 @@
 
 <h4>Similar notes</h4>
 <div class="llm-notes-search-results">
-    {#each note_sections as result (result.chunk_hash)}
+    {#each note_sections as result (result.timestamp)}
         <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
         <div
             class="tree-item-self is-clickable nav-file-title"

@@ -44,7 +44,7 @@
     <input class="llm-notes-search-input" type="text" bind:value={searchQuery} on:input={handleSearch} placeholder="Search notes..." />
 
     <div class="llm-notes-search-results">
-        {#each search_results as result (result.chunk_hash)}
+        {#each search_results as result (result.timestamp)}
             <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
             <div
                 class="tree-item-self is-clickable nav-file-title"
