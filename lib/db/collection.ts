@@ -1,14 +1,30 @@
 import { MilvusClient, DataType, type RowData } from "@zilliz/milvus2-sdk-node";
 import type { TFile } from "obsidian";
 import type { AiNotesSettings } from "views/settings";
+import ollama from "ollama";
 
-async function initializeCollection(client: MilvusClient, collection_name: string = "ai_notes") {
+async function getEmbeddingDim(settings: AiNotesSettings): Promise<number> {
+    const model = settings.selected_embedding;
+    let res = await ollama.embed({
+        model: model,
+        input: "test",
+        options: {
+            num_ctx: settings.context_window,
+        }
+    });
+
+    return res.embeddings[0].length;
+}
+
+async function initializeCollection(client: MilvusClient, settings: AiNotesSettings, collection_name: string = "ai_notes") {
     let fields, index_params;
+
+    const embedding_dim = await getEmbeddingDim(settings);
 
     if (collection_name === "ai_notes") {
         fields = [
             { name: "id", data_type: DataType.Int64, is_primary_key: true },
-            { name: "embedding", data_type: DataType.FloatVector, dim: 384 },
+            { name: "embedding", data_type: DataType.FloatVector, dim: embedding_dim },
             { name: "timestamp", data_type: DataType.Int64 },
             { name: "file_path", data_type: DataType.VarChar, max_length: 1000 },
             { name: "file_hash", data_type: DataType.VarChar, max_length: 32 },
@@ -31,7 +47,7 @@ async function initializeCollection(client: MilvusClient, collection_name: strin
     } else if (collection_name === "ai_notes_files") {
         fields = [
             { name: "id", data_type: DataType.Int64, is_primary_key: true },
-            { name: "embedding", data_type: DataType.FloatVector, dim: 384 },
+            { name: "embedding", data_type: DataType.FloatVector, dim: embedding_dim },
             { name: "file_hash", data_type: DataType.VarChar, max_length: 32 },
             { name: "file_path", data_type: DataType.VarChar, max_length: 1000 },
             { name: "modified_time", data_type: DataType.Int64 },
@@ -67,18 +83,18 @@ export async function setupDatabase(client: MilvusClient, settings: AiNotesSetti
 export async function loadCollection(client: MilvusClient, settings: AiNotesSettings, collection_name: string = "ai_notes") {
     let res = await client.hasCollection({ collection_name: collection_name });
     if (!res.value) {
-        await initializeCollection(client, collection_name);
+        await initializeCollection(client, settings, collection_name);
     }
     let load_res = await client.loadCollection({ collection_name: collection_name });
 
     if (settings.debug) console.log("Collection loaded:", load_res);
 }
 
-export async function resetCollection(client: MilvusClient, collection_name: string = "ai_notes") {
+export async function resetCollection(client: MilvusClient, settings: AiNotesSettings, collection_name: string = "ai_notes") {
     let res = await client.hasCollection({ collection_name: collection_name });
     if (res.value) {
         await client.dropCollection({ collection_name: collection_name });
-        await initializeCollection(client, collection_name);
+        await initializeCollection(client, settings, collection_name);
     }
 }
 

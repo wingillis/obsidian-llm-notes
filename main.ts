@@ -178,8 +178,8 @@ export default class AiNotes extends Plugin {
 	}
 
 	async resetDatabase() {
-		await resetCollection(this.milvus_client, "ai_notes");
-		await resetCollection(this.milvus_client, "ai_notes_files");
+		await resetCollection(this.milvus_client, this.settings, "ai_notes");
+		await resetCollection(this.milvus_client, this.settings, "ai_notes_files");
 	}
 
 	async loadSettings() {
