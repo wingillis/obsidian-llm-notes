@@ -65,14 +65,11 @@ export async function findSimilarFileChunks(vault: Vault, settings: AiNotesSetti
 
 export async function findSimilarChunksFromQuery(vault: Vault, settings: AiNotesSettings, client: MilvusClient, query: string): Promise<AiNoteSections[]> {
 
-    const ctx_size: number = Math.ceil(settings.chunk_size / 4);
-    const full_length: number = ctx_size + Math.ceil(query.length / 4);
-
     const response = await ollama.embed({
         model: settings.selected_embedding,
         input: query,
         options: {
-            num_ctx: query.length > ctx_size ? full_length : ctx_size,
+            num_ctx: settings.context_window,
         }
     });
     const embedding: Array<number> = response.embeddings[0];
@@ -262,8 +259,6 @@ function rerankResults(query: string, results: SearchResultData[], settings: AiN
 }
 
 async function workspaceRAG(query: string, settings: AiNotesSettings, client: MilvusClient) {
-    const ctx_size: number = Math.ceil(query.length / 3);
-
     // remove workspace keyword with optional space after from query using regex
     query = query.replace(/@workspace\s?/g, "");
 
@@ -271,7 +266,7 @@ async function workspaceRAG(query: string, settings: AiNotesSettings, client: Mi
         model: settings.selected_embedding,
         input: query,
         options: {
-            num_ctx: ctx_size,
+            num_ctx: settings.context_window,
         }
     });
 
@@ -372,6 +367,9 @@ export async function chatWithFiles(vault: Vault, settings: AiNotesSettings, cli
 
     if (settings.debug) console.log("Chat messages:\n", chat_msgs);
 
+    // compute context window for full message
+    const context_len = Math.min(chat_msgs.map((msg) => msg.content.length).reduce((a, b) => a + b, 0) / 4, 128000);
+
     // step 3: send message to ollama
     let res = await ollama.chat({
         model: settings.selected_llm,
@@ -381,7 +379,7 @@ export async function chatWithFiles(vault: Vault, settings: AiNotesSettings, cli
         ],
         stream: true,
         options: {
-            num_ctx: 12500,
+            num_ctx: settings.context_window < context_len ? settings.context_window : context_len,
             temperature: 0.5,
             // seed: 0,
         }

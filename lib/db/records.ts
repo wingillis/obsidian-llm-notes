@@ -30,7 +30,7 @@ async function addChunksToDB(file: FileRecord, settings: AiNotesSettings, client
 
     let context: string | null = null;
     if (num_chunks > 1) {
-        context = await getContext(file.contents, settings.selected_llm);
+        context = await getContext(file.contents, settings.selected_llm, settings.context_window);
         if (settings.debug) console.log("Summary:", context);
     } else {
         if (settings.debug) console.log("No context needed");
@@ -62,7 +62,7 @@ async function addChunksToDB(file: FileRecord, settings: AiNotesSettings, client
             model: settings.selected_embedding,
             input: context_chunk,
             options: {
-                num_ctx: context_chunk.length > ctx_size ? full_length : ctx_size,
+                num_ctx: settings.context_window < full_length ? full_length : settings.context_window,
             }
         });
         const embedding: Array<number> = response.embeddings[0];
@@ -92,12 +92,14 @@ async function addFileToDB(file: FileRecord, settings: AiNotesSettings, client: 
         console.log("Content length:", file.contents.length);
     }
 
+    const ctx_size: number = Math.ceil(file.contents.length / 4);
+
     // call ollama to generate embeddings
     const response = await ollama.embed({
         model: settings.selected_embedding,
         input: file.contents.length == 0 ? " " : file.contents,
         options: {
-            num_ctx: (file.contents.length + 1) * 3,
+            num_ctx: settings.context_window > ctx_size ? settings.context_window : ctx_size,
         }
     });
 

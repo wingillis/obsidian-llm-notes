@@ -7,6 +7,7 @@ import { type AiNotesSettings, DEFAULT_SETTINGS } from 'views/settings';
 import { SimilarityView, AiChatView, AiNotesSearchModal, VIEW_TYPE_AI_CHAT, VIEW_TYPE_AI_NOTES } from 'views/item_views';
 import { chatWithFiles, findSimilarChunksFromQuery, findSimilarFileChunks } from 'lib/actions';
 import { registerFiles } from 'lib/db/records';
+import ollama from 'ollama';
 import path from 'path';
 
 export interface AiNoteSections {
@@ -37,63 +38,87 @@ export default class AiNotes extends Plugin {
 	// @ts-ignore
 	status_bar_item: HTMLElement;
 	registering_files: boolean = false;
+	first_run: boolean = true;
 
 	async onload() {
-		await this.loadSettings();
+		if (this.first_run) {
+			await this.loadSettings();
+			this.setupStatusBar();
+			this.addSettingTab(new AiNotesSettingsTab(this));
+			this.first_run = false;
+		}
 
-		this.setupViews();
+		// try connecting to ollama before proceeding
+		try {
+			const _resp = await ollama.list();
+		} catch (e) {
+			this.settings.start_application = false;
+			if (this.settings.debug) console.log("Cannot connect to ollama. Check if it is running");
 
-		this.addRibbonIcon('sticker', 'LLM notes: similar notes view', (evt: MouseEvent) => {
-			this.openSimilarityView();
-		});
+			await this.saveSettings();
+			this.status_bar_item.setText('LLM(❌)');
+		}
 
-		this.addRibbonIcon('messages-square', 'LLM notes: chat view', (evt: MouseEvent) => {
-			this.openChatView();
-		});
+		if (this.settings.start_application) {
+			this.initDb();
 
-		this.setupStatusBar();
-		this.setupCommands();
+			this.setupViews();
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new AiNotesSettingsTab(this));
+			this.addRibbonIcon('sticker', 'LLM notes: similar notes view', (evt: MouseEvent) => {
+				this.openSimilarityView();
+			});
 
-		// register event to find similar notes when file is opened
-		this.registerEvent(this.app.workspace.on('file-open', this.fileOpened.bind(this)));
+			this.addRibbonIcon('messages-square', 'LLM notes: chat view', (evt: MouseEvent) => {
+				this.openChatView();
+			});
 
-		const basePath = (this.app.vault.adapter as any).basePath;
-		this.milvus_client = new MilvusClient({
-			address: "localhost:19530",
-			protoFilePath: {
-				schema: path.resolve(basePath, ".obsidian/plugins/obsidian-llm-notes/proto/schema.proto"),
-				milvus: path.resolve(basePath, ".obsidian/plugins/obsidian-llm-notes/proto/milvus.proto"),
-			}
-		});
-		await setupDatabase(this.milvus_client, this.settings);
+			this.setupCommands();
 
-		this.app.workspace.onLayoutReady(async () => {
-			this.registering_files = true;
-			await registerFiles(this.app.vault, this.settings, this.status_bar_item, this.milvus_client);
-			this.registering_files = false;
-		});
+			// register event to find similar notes when file is opened
+			this.registerEvent(this.app.workspace.on('file-open', this.fileOpened.bind(this)));
 
-		// periodically check for modified files every 45 seconds
-		this.registerInterval(window.setInterval(async () => {
-			if (!this.registering_files) {
+			await setupDatabase(this.milvus_client, this.settings);
+
+			this.app.workspace.onLayoutReady(async () => {
 				this.registering_files = true;
-				const has_updates: boolean = await registerFiles(this.app.vault, this.settings, this.status_bar_item, this.milvus_client);
-				if (has_updates) {
+				await registerFiles(this.app.vault, this.settings, this.status_bar_item, this.milvus_client);
+				this.registering_files = false;
+			});
+
+			// periodically check for modified files every 45 seconds
+			this.registerInterval(window.setInterval(async () => {
+				if (!this.registering_files) {
+					this.registering_files = true;
+					const has_updates: boolean = await registerFiles(this.app.vault, this.settings, this.status_bar_item, this.milvus_client);
+					if (has_updates) {
+						this.fileOpened(this.app.workspace.getActiveFile());
+					}
+					this.registering_files = false;
+				} else {
+					if (this.settings.debug) console.log("Already registering files");
 					this.fileOpened(this.app.workspace.getActiveFile());
 				}
-				this.registering_files = false;
-			} else {
-				if (this.settings.debug) console.log("Already registering files");
-				this.fileOpened(this.app.workspace.getActiveFile());
-			}
-		}, 45000));
+			}, 45000));
+		}
 	}
 
 	onunload() {
 		this.milvus_client.closeConnection();
+	}
+
+	private initDb() {
+		const basePath = (this.app.vault.adapter as any).basePath;
+		try {
+			this.milvus_client = new MilvusClient({
+				address: "localhost:19530",
+				protoFilePath: {
+					schema: path.resolve(basePath, ".obsidian/plugins/obsidian-llm-notes/proto/schema.proto"),
+					milvus: path.resolve(basePath, ".obsidian/plugins/obsidian-llm-notes/proto/milvus.proto"),
+				}
+			});
+		} catch (e) {
+			throw new Error("Cannot connect to Milvus. Check if it is running");
+		}
 	}
 
 	private setupViews() {

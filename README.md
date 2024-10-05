@@ -52,24 +52,24 @@ If you feel uncomfortable running this script, I encourage you to read it first,
 
 1. Follow the installation instructions for `ollama` [here](https://ollama.com/download).
 If on a Mac, you can also install `ollama` with [Homebrew](https://formulae.brew.sh/formula/ollama) `brew install ollama`.
-2. Run the server if it's not already running: `ollama serve`. I prefer to set a few environment variables before running the server:
+2. Run the server if it's not already running: `ollama serve`. I prefer to use flash when running the server:
 
 ```bash
-OLLAMA_FLASH_ATTENTION=true OLLAMA_MAX_LOADED_MODELS=2 OLLAMA_NUM_PARALLEL=2 ollama serve
+OLLAMA_FLASH_ATTENTION=true ollama serve
 ```
 
 3. Download a language and embedding model of your choice.
-I recommend `llama3.2` and `all-minilm`.
+I recommend `llama3.2` for your LLM and `nomic-embed-text` or `snowflake-arctic-embed:137m` for your embedding model.
 
 ```bash
 # in a new terminal window while "ollama serve" is running
-ollama pull all-minilm
+ollama pull nomic-embed-text  # or ollama pull snowflake-arctic-embed:137m
 ollama pull llama3.2
 ```
 
 ### Plugin (continued)
 
-Once you have `ollama` and `milvus` set up, you can enable the plugin in Obsidian.
+Once you have `ollama` and `milvus` set up and running, you can enable the plugin in Obsidian.
 
 However, the first time you run the plugin will fail because you haven't selected a language model yet.
 First, open the settings for the plugin and select the language model you want to use.

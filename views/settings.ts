@@ -10,21 +10,25 @@ export interface AiNotesSettings {
 	chunk_size: number;
 	chunk_overlap: number;
 	use_context: boolean;
+	context_window: number;
 	similar_notes_search_limit: number;
 	similarity_threshold: number;
 	llm_folder: string;
+	start_application: boolean;
 	debug: boolean;
 }
 
 export const DEFAULT_SETTINGS: Partial<AiNotesSettings> = {
-	selected_llm: 'llama3.1',
-	selected_embedding: 'all-minilm',
-	chunk_size: 512,
-	chunk_overlap: 128,
+	selected_llm: 'llama3.2',
+	selected_embedding: 'nomic-embed-text',
+	chunk_size: 1024,
+	chunk_overlap: 256,
 	use_context: true,
+	context_window: 8192,
 	similar_notes_search_limit: 15,
 	similarity_threshold: 0.25,
 	llm_folder: 'llm-chats',
+	start_application: false,
 	debug: false,
 }
 
@@ -46,7 +50,12 @@ export default class AiNotesSettingsTab extends PluginSettingTab {
 			.setName("Default LLM")
 			.setDesc("Set the default LLM model from Ollama to use")
 			.addDropdown(async (dropdown) => {
-				const response: ListResponse = await ollama.list();
+				let response: ListResponse;
+				try {
+					response = await ollama.list();
+				} catch (e) {
+					response = { models: [] };
+				}
 				// @ts-ignore
 				dropdown.addOptions(response.models.map((model) => {
 					return model.name;
@@ -102,6 +111,18 @@ export default class AiNotesSettingsTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
+			.setName('Context window size (tokens)')
+			.setDesc('Set the number of tokens to use for context window. Smaller values use less memory. If a document is larger' +
+				'than the context window, the context size will be automatically increased for that document.')
+			.addText(text => text
+				.setPlaceholder('Enter context window size')
+				.setValue(`${this.plugin.settings.context_window}`)
+				.onChange(async (value) => {
+					this.plugin.settings.context_window = parseInt(value);
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
 			.setName('Similar notes search limit')
 			.setDesc('Set the number of similar notes to search for')
 			.addText(text => text
@@ -145,6 +166,19 @@ export default class AiNotesSettingsTab extends PluginSettingTab {
 						this.plugin.resetDatabase();
 					}
 				}));
+
+		if (!this.plugin.settings.start_application) {
+			new Setting(containerEl)
+				.setName('Start plugin')
+				.setDesc('Start the plugin once Ollama and Milvus are running')
+				.addButton(button => button
+					.setButtonText('Start plugin')
+					.onClick(async () => {
+						this.plugin.settings.start_application = true;
+						await this.plugin.saveSettings();
+						await this.plugin.onload();
+					}));
+		}
 
 		new Setting(containerEl)
 			.setName('Debug')

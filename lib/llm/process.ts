@@ -1,6 +1,6 @@
 import ollama, { type ChatResponse, type Message } from 'ollama';
 
-export async function getContext(contents: string, model: string) {
+export async function getContext(contents: string, model: string, context_window: number): Promise<string> {
 
     const prompt: string = `\
 <document>
@@ -26,7 +26,7 @@ From the document above, provide a short succinct summary of the document that a
         ],
         stream: false,
         options: {
-            num_ctx: Math.min(ctx_len, 100000),
+            num_ctx: Math.max(context_window, ctx_len),
             temperature: 0.7,
             seed: 0,
         }
