@@ -283,7 +283,7 @@ async function workspaceRAG(query: string, settings: AiNotesSettings, client: Mi
     const similar_chunks: SearchResults = await client.search({
         collection_name: "ai_notes",
         data: [embedding],
-        limit: 50,
+        limit: 150,
         params: {
             // expand search radius to include more results for this step
             radius: settings.similarity_threshold / 2,
