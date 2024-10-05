@@ -317,10 +317,9 @@ Below are documents that are relevant to the query provided; use these documents
 ${document_string}
 
 When answering questions, ensure you cite the source document by providing the file name in wikilink format.
-For example, to cite the document "example.md", use [[example]] in your response.
+For example, to cite the document "source", use [[source]] in your response.
 If the answer involves multiple documents, cite each source clearly.
-For example, [[example1]] states that "..." and [[example2]] states that "...".
-When pertinent, provide a direct quote from the source document.
+For example, [[source1]] states that "..." and [[source2]] states that "...".
 
 <query>
 ${query}
