@@ -69,14 +69,24 @@ export default class AiNotesSettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Default embedding model")
-			.setDesc("Set the default embedding model from Ollama to use")
-			.addText(text => text
-				.setPlaceholder("Enter model name")
-				.setValue(this.plugin.settings.selected_embedding)
-				.onChange(async (value) => {
-					this.plugin.settings.selected_embedding = value;
-					await this.plugin.saveSettings();
-				}));
+			.setDesc("Set the default embedding model from Ollama to use. Download one if you haven't already.")
+			.addDropdown(async (dropdown) => {
+				let response: ListResponse;
+				try {
+					response = await ollama.list();
+				} catch (e) {
+					response = { models: [] };
+				}
+				// @ts-ignore
+				dropdown.addOptions(response.models.map((model) => {
+					return model.name;
+				}))
+					.setValue(response.models.findIndex((model) => model.name === this.plugin.settings.selected_embedding).toString())
+					.onChange(async (value: string) => {
+						this.plugin.settings.selected_embedding = response.models[parseInt(value)].name;
+						await this.plugin.saveSettings();
+					})
+				});
 
 		new Setting(containerEl)
 			.setName('Embedding chunk size (characters)')

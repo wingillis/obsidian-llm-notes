@@ -45,7 +45,7 @@
         >
             <div class="llm-notes-flex">
                 <div>{result.file_path.replace(".md", "")}</div>
-                <small class="llm-notes-summary">{result.chunk.contents}</small>
+                <small class="llm-notes-summary">{result.contents}</small>
             </div>
         </div>
     {/each}

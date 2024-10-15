@@ -1,4 +1,23 @@
 import ollama, { type ChatResponse, type Message } from 'ollama';
+import type { AiNotesSettings } from "views/settings";
+
+
+export async function getEmbeddingDim(settings: AiNotesSettings): Promise<number> {
+    return (await embed("test", settings)).length;
+}
+
+export async function embed(text: string, settings: AiNotesSettings): Promise<Array<number>> {
+    const full_length: number = Math.ceil(text.length / 4);
+    const response = await ollama.embed({
+        model: settings.selected_embedding,
+        input: text,
+        options: {
+            num_ctx: Math.max(settings.context_window, full_length),
+        }
+    });
+
+    return response.embeddings[0];
+}
 
 export async function getContext(contents: string, model: string, context_window: number): Promise<string> {
 

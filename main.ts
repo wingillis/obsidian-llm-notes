@@ -1,24 +1,18 @@
 import { Plugin, type TFile, WorkspaceLeaf } from 'obsidian';
-import { MilvusClient } from '@zilliz/milvus2-sdk-node';
-import { resetCollection, setupDatabase } from 'lib/db/collection';
 import store from 'lib/store';
 import AiNotesSettingsTab from 'views/settings';
 import { type AiNotesSettings, DEFAULT_SETTINGS } from 'views/settings';
 import { SimilarityView, AiChatView, AiNotesSearchModal, VIEW_TYPE_AI_CHAT, VIEW_TYPE_AI_NOTES } from 'views/item_views';
 import { chatWithFiles, findSimilarChunksFromQuery, findSimilarFileChunks } from 'lib/actions';
 import { registerFiles } from 'lib/db/records';
+import { closeConnection, initializeRedis } from 'lib/db/redis-interface';
 import ollama from 'ollama';
-import path from 'path';
 
 export interface AiNoteSections {
 	file: TFile;
-	file_hash: string;
 	file_path: string;
-	embedding: Array<number>;
-	chunk: any;
-	chunk_hash: string;
+	contents: any;
 	timestamp: number;
-	id: string;
 }
 
 export interface ChatMessage {
@@ -32,11 +26,9 @@ export default class AiNotes extends Plugin {
 	// @ts-ignore
 	settings: AiNotesSettings;
 	// @ts-ignore
-	milvus_client: MilvusClient;
+	status_bar_item: HTMLElement;
 
 	chat_messages: ChatMessage[] = [];
-	// @ts-ignore
-	status_bar_item: HTMLElement;
 	registering_files: boolean = false;
 	first_run: boolean = true;
 
@@ -48,12 +40,13 @@ export default class AiNotes extends Plugin {
 			this.first_run = false;
 		}
 
-		// try connecting to ollama before proceeding
+		// try connecting to ollama and redis before proceeding
 		try {
 			const _resp = await ollama.list();
+			initializeRedis(this.settings);
 		} catch (e) {
 			this.settings.start_application = false;
-			if (this.settings.debug) console.log("Cannot connect to ollama. Check if it is running");
+			if (this.settings.debug) console.log("Cannot connect to ollama or redis. Check if they are running");
 
 			await this.saveSettings();
 			this.status_bar_item.setText('LLM(❌)');
@@ -61,7 +54,6 @@ export default class AiNotes extends Plugin {
 
 		if (this.settings.start_application) {
 			this.status_bar_item.setText('LLM(🔄)');
-			this.initDb();
 
 			this.setupViews();
 
@@ -78,11 +70,9 @@ export default class AiNotes extends Plugin {
 			// register event to find similar notes when file is opened
 			this.registerEvent(this.app.workspace.on('file-open', this.fileOpened.bind(this)));
 
-			await setupDatabase(this.milvus_client, this.settings);
-
 			this.app.workspace.onLayoutReady(async () => {
 				this.registering_files = true;
-				await registerFiles(this.app.vault, this.settings, this.status_bar_item, this.milvus_client);
+				await registerFiles(this.app.vault, this.settings, this.status_bar_item);
 				this.registering_files = false;
 			});
 
@@ -90,7 +80,7 @@ export default class AiNotes extends Plugin {
 			this.registerInterval(window.setInterval(async () => {
 				if (!this.registering_files) {
 					this.registering_files = true;
-					const has_updates: boolean = await registerFiles(this.app.vault, this.settings, this.status_bar_item, this.milvus_client);
+					const has_updates: boolean = await registerFiles(this.app.vault, this.settings, this.status_bar_item);
 					if (has_updates) {
 						this.fileOpened(this.app.workspace.getActiveFile());
 					}
@@ -104,22 +94,7 @@ export default class AiNotes extends Plugin {
 	}
 
 	onunload() {
-		this.milvus_client.closeConnection();
-	}
-
-	private initDb() {
-		const basePath = (this.app.vault.adapter as any).basePath;
-		try {
-			this.milvus_client = new MilvusClient({
-				address: "localhost:19530",
-				protoFilePath: {
-					schema: path.resolve(basePath, ".obsidian/plugins/obsidian-llm-notes/proto/schema.proto"),
-					milvus: path.resolve(basePath, ".obsidian/plugins/obsidian-llm-notes/proto/milvus.proto"),
-				}
-			});
-		} catch (e) {
-			throw new Error("Cannot connect to Milvus. Check if it is running");
-		}
+		closeConnection();
 	}
 
 	private setupViews() {
@@ -138,6 +113,7 @@ export default class AiNotes extends Plugin {
 			id: 'open-search-modal',
 			name: 'Embedding-based file search',
 			callback: () => {
+				store.search_results.set([]);
 				new AiNotesSearchModal(this).open();
 			}
 		});
@@ -179,8 +155,8 @@ export default class AiNotes extends Plugin {
 	}
 
 	async resetDatabase() {
-		await resetCollection(this.milvus_client, this.settings, "ai_notes");
-		await resetCollection(this.milvus_client, this.settings, "ai_notes_files");
+		// force reset
+		initializeRedis(this.settings, true);
 	}
 
 	async loadSettings() {
@@ -241,7 +217,7 @@ export default class AiNotes extends Plugin {
 			return;
 		}
 
-		const similar_sections: AiNoteSections[] = await findSimilarFileChunks(this.app.vault, this.settings, this.milvus_client, file);
+		const similar_sections: AiNoteSections[] = await findSimilarFileChunks(this.app.vault, this.settings, file);
 
 		// set similar_sections in svelte store
 		store.note_sections.set(similar_sections);
@@ -258,7 +234,7 @@ export default class AiNotes extends Plugin {
 
 		store.chat_messages.set(this.chat_messages);
 
-		let response = await chatWithFiles(this.app.vault, this.settings, this.milvus_client, this.chat_messages);
+		let response = await chatWithFiles(this.app.vault, this.settings, this.chat_messages);
 
 		this.chat_messages.push({
 			id: Date.now(),
@@ -302,7 +278,7 @@ export default class AiNotes extends Plugin {
 	}
 
 	async searchFiles(query: string) {
-		const similar_sections: AiNoteSections[] = await findSimilarChunksFromQuery(this.app.vault, this.settings, this.milvus_client, query);
+		const similar_sections: AiNoteSections[] = await findSimilarChunksFromQuery(this.app.vault, this.settings, query);
 
 		store.search_results.set(similar_sections);
 	}

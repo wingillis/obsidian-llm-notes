@@ -1,61 +1,42 @@
 import ollama from 'ollama';
 import type { TFile, Vault } from 'obsidian';
-import type { MilvusClient, QueryResults, SearchResultData, SearchResults } from '@zilliz/milvus2-sdk-node';
 import type { AiNotesSettings } from 'views/settings';
-import { processFile } from 'lib/db/records';
 import type { AiNoteSections, ChatMessage } from 'main';
+import { knnSearch, getFileEntryByPath, type KnnSearchResult } from 'lib/db/search';
+import type { AiFileEntry } from 'lib/db/redis-interface';
+import { embed } from './llm/process';
 
-export async function findSimilarFileChunks(vault: Vault, settings: AiNotesSettings, client: MilvusClient, file: TFile): Promise<AiNoteSections[]> {
 
-    let file_embedding: number[];
+export async function findSimilarFileChunks(vault: Vault, settings: AiNotesSettings, file: TFile): Promise<AiNoteSections[]> {
+    let similar_sections: AiNoteSections[] = [];
 
-    const file_res: QueryResults = await client.query({
-        collection_name: "ai_notes_files",
-        filter: `file_path == '${file.path}'`,
-        output_fields: ["embedding"],
-    });
+    const file_res: AiFileEntry | null = await getFileEntryByPath(file.path, settings);
 
     if (settings.debug) console.log("File query results:", file_res);
 
-    // if not in db, add to db
-    if (file_res.data.length === 0) {
-        const output = await processFile(file, vault, settings, client);
-        file_embedding = output?.file_output.embedding;
-    } else {
-        file_embedding = file_res.data[0].embedding;
+    // if not in db, send console log
+    if (file_res === null) {
+        if (settings.debug) console.log("File not in db, wait until all files are indexed");
+        return similar_sections;
     }
 
+    let file_embedding: number[] = file_res.embedding;
     // get similar embeddings from db
-    const similar_chunks: SearchResults = await client.search({
-        collection_name: "ai_notes",
-        data: [file_embedding],
-        limit: settings.similar_notes_search_limit,
-        filter: `(file_path != '${file.path}') and chunk_length > 0`,
-        params: {
-            radius: settings.similarity_threshold,
-            range: 1,
-        },
-        output_fields: ["file_path", "chunk", "embedding", "file_hash", "timestamp", "id"],
-    });
+    const results: KnnSearchResult[] = await knnSearch(file_embedding, settings.similar_notes_search_limit, settings.similarity_threshold);
+    if (settings.debug) console.log("Similar chunk results:", results);
 
-    if (settings.debug) console.log("Similar chunk results:", similar_chunks);
-
-    let similar_sections: AiNoteSections[] = [];
     // process entries from db, include TFile from obsidian
-    for (let result of similar_chunks.results) {
-        const { file_path, chunk } = result;
+    for (const result of results) {
+        if (settings.debug) console.log("Result:", result);
+        const { file_path, contents, timestamp } = result;
         const file: TFile | null = vault.getFileByPath(file_path);
 
         if (file) {
             similar_sections.push({
                 file: file,
-                file_hash: result.file_hash,
                 file_path: file_path,
-                embedding: result.embedding,
-                chunk: chunk,
-                chunk_hash: result.chunk_hash,
-                timestamp: result.timestamp,
-                id: result.id,
+                contents: contents,
+                timestamp: timestamp,
             });
         }
     }
@@ -63,33 +44,16 @@ export async function findSimilarFileChunks(vault: Vault, settings: AiNotesSetti
     return similar_sections;
 }
 
-export async function findSimilarChunksFromQuery(vault: Vault, settings: AiNotesSettings, client: MilvusClient, query: string): Promise<AiNoteSections[]> {
+export async function findSimilarChunksFromQuery(vault: Vault, settings: AiNotesSettings, query: string): Promise<AiNoteSections[]> {
 
-    const response = await ollama.embed({
-        model: settings.selected_embedding,
-        input: query,
-        options: {
-            num_ctx: settings.context_window,
-        }
-    });
-    const embedding: Array<number> = response.embeddings[0];
+    const embedding = await embed(query, settings);
+    if (settings.debug) console.log("Search query embedding:", embedding);
+    const similar_chunks: KnnSearchResult[] = await knnSearch(embedding, 150, settings.similarity_threshold);
 
-    const similar_chunks: SearchResults = await client.search({
-        collection_name: "ai_notes",
-        data: [embedding],
-        limit: 100,
-        filter: "chunk_length > 0",
-        params: {
-            radius: settings.similarity_threshold,
-            range: 1,
-        },
-        output_fields: ["file_path", "chunk", "embedding", "file_hash", "timestamp", "id"],
-    });
-
-    if (settings.debug) console.log("Search query: similar chunk results:", similar_chunks);
+    if (settings.debug) console.log("Search query:", query, "similar chunk results:", similar_chunks);
 
     // re-rank search results using TF-IDF
-    const ranked_results = rerankResults(query, similar_chunks.results, settings);
+    const ranked_results = rerankResults(query, similar_chunks, settings);
 
     if (settings.debug) console.log("Search query: similar chunk results after ranking and slicing:", ranked_results);
 
@@ -101,13 +65,9 @@ export async function findSimilarChunksFromQuery(vault: Vault, settings: AiNotes
         if (file) {
             similar_sections.push({
                 file: file,
-                file_hash: result.file_hash,
                 file_path: result.file_path,
-                embedding: result.embedding,
-                chunk: result.chunk,
-                chunk_hash: result.chunk_hash,
+                contents: result.contents,
                 timestamp: result.timestamp,
-                id: result.id,
             });
         }
     }
@@ -190,11 +150,11 @@ function removeStopWords(text: string): string[] {
     });
 }
 
-function calculateIDF(term: string, results: SearchResultData[]): number {
+function calculateIDF(term: string, results: KnnSearchResult[]): number {
     if (results.length === 0) return 0;
 
-    const num_docs_with_term = results.filter((result: SearchResultData) => {
-        return result.chunk.contents.toLocaleLowerCase().includes(term);
+    const num_docs_with_term = results.filter(result => {
+        return result.contents.toLocaleLowerCase().includes(term);
     }).length;
     return Math.log(results.length / (1 + num_docs_with_term)) + 1;
 }
@@ -205,7 +165,7 @@ function calculateTF(term: string, document: string): number {
     return Math.log(1 + term_count);
 }
 
-function TF_IDFRank(query: string, results: SearchResultData[], settings: AiNotesSettings) {
+function TF_IDFRank(query: string, results: KnnSearchResult[], settings: AiNotesSettings) {
     // remove punctuation from query
     query = query.replace(/[.,\/#!$%\^&\*;:{}=\_`~()]/g, "").replace("-", " ");
     const terms = removeStopWords(query);
@@ -214,7 +174,7 @@ function TF_IDFRank(query: string, results: SearchResultData[], settings: AiNote
 
     const tf_idf = terms.map(term => {
         const idf: number = calculateIDF(term, results);
-        const tf: number[] = results.map(result => calculateTF(term, result.chunk.contents.toLocaleLowerCase()));
+        const tf: number[] = results.map(result => calculateTF(term, result.contents.toLocaleLowerCase()));
         return { term, idf, tf };
     });
 
@@ -249,7 +209,7 @@ function TF_IDFRank(query: string, results: SearchResultData[], settings: AiNote
     return avg_scores;
 }
 
-function rerankResults(query: string, results: SearchResultData[], settings: AiNotesSettings) {
+function rerankResults(query: string, results: KnnSearchResult[], settings: AiNotesSettings) {
     const tfidf_weight: number = 0.25;
 
     // re-rank search results using TF-IDF
@@ -266,36 +226,17 @@ function rerankResults(query: string, results: SearchResultData[], settings: AiN
     return ranked_results.slice(0, settings.similar_notes_search_limit);
 }
 
-async function workspaceRAG(query: string, settings: AiNotesSettings, client: MilvusClient) {
+async function workspaceRAG(query: string, settings: AiNotesSettings) {
     // remove workspace keyword with optional space after from query using regex
     query = query.replace(/@workspace\s?/g, "");
 
-    const response = await ollama.embed({
-        model: settings.selected_embedding,
-        input: query,
-        options: {
-            num_ctx: settings.context_window,
-        }
-    });
-
-    const embedding: Array<number> = response.embeddings[0];
-
-    const similar_chunks: SearchResults = await client.search({
-        collection_name: "ai_notes",
-        data: [embedding],
-        limit: 150,
-        params: {
-            // expand search radius to include more results for this step
-            radius: settings.similarity_threshold / 2,
-            range: 1,
-        },
-        output_fields: ["file_path", "chunk"],
-    });
+    const embedding: number[] = await embed(query, settings);
+    const similar_chunks: KnnSearchResult[] = await knnSearch(embedding, 150, settings.similarity_threshold);
 
     if (settings.debug) console.log("Workspace RAG search results:", similar_chunks);
 
     // reverse order so most relevant docs are near the query at bottom
-    const ranked_results = rerankResults(query, similar_chunks.results, settings).reverse();
+    const ranked_results = rerankResults(query, similar_chunks, settings).reverse();
 
     // format and combine documents into a single string
     const document_string = ranked_results.map((result) => {
@@ -305,7 +246,7 @@ File name:
 ${result.file_path.replace(".md", "")}
 
 Contents:
-${result.chunk.contents}
+${result.contents}
 </document>\
 `;
     }).join("\n\n");
@@ -330,12 +271,12 @@ ${query}
 
 }
 
-export async function chatWithFiles(vault: Vault, settings: AiNotesSettings, client: MilvusClient, messages: ChatMessage[]) {
+export async function chatWithFiles(vault: Vault, settings: AiNotesSettings, messages: ChatMessage[]) {
     const sys_msg: string = "You are an expert at responding to queries about the given text.";
 
     const current_msg: string = messages[messages.length - 1].message;
 
-    // step 1: parse message - check for referenced files
+    // step 1: parse and process message - check for referenced files and add relevant context
     const ref_file_resp = await processForReferencedFiles(vault, current_msg);
     if (ref_file_resp.status) {
         messages[messages.length - 1].hidden_message = ref_file_resp.prompt;
@@ -355,14 +296,11 @@ export async function chatWithFiles(vault: Vault, settings: AiNotesSettings, cli
 
             if (keyword === "@workspace") {
                 // use RAG on the whole workspace to generate a response
-                let prompt = await workspaceRAG(current_msg, settings, client);
+                let prompt = await workspaceRAG(current_msg, settings);
                 messages[messages.length - 1].hidden_message = prompt;
             }
         }
     }
-
-    // step 2: pre-process commands and modify message to add relevant context
-    // do another search in the database for relevant context
 
     if (settings.debug) console.log("Messages:\n", messages);
 
@@ -378,7 +316,7 @@ export async function chatWithFiles(vault: Vault, settings: AiNotesSettings, cli
     // compute context window for full message
     const context_len = Math.min(chat_msgs.map((msg) => msg.content.length).reduce((a, b) => a + b, 0) / 4, 128000);
 
-    // step 3: send message to ollama
+    // step 2: send message to ollama
     let res = await ollama.chat({
         model: settings.selected_llm,
         messages: [
@@ -387,7 +325,7 @@ export async function chatWithFiles(vault: Vault, settings: AiNotesSettings, cli
         ],
         stream: true,
         options: {
-            num_ctx: settings.context_window < context_len ? settings.context_window : context_len,
+            num_ctx: Math.max(settings.context_window, context_len),
             temperature: 0.5,
             // seed: 0,
         }

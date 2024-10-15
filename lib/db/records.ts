@@ -1,10 +1,9 @@
-import type { MilvusClient } from "@zilliz/milvus2-sdk-node";
 import type { AiNotesSettings } from "views/settings";
 import type { TFile, Vault } from "obsidian";
 import crypto from "crypto";
-import ollama from "ollama";
-import { findNewOrUpdatedFiles, insert } from "lib/db/collection";
-import { getContext } from "lib/llm/process";
+import { getContext, embed } from "lib/llm/process";
+import type { AiNoteEntry, AiFileEntry } from "lib/db/redis-interface";
+import { bulkInsert, findNewOrUpdatedFiles } from "lib/db/redis-interface";
 
 export interface FileRecord {
     contents: string;
@@ -13,9 +12,9 @@ export interface FileRecord {
     modified_time: number;
 }
 
-async function addChunksToDB(file: FileRecord, settings: AiNotesSettings, client: MilvusClient): Promise<Array<any>> {
+async function addChunksToDB(file: FileRecord, settings: AiNotesSettings): Promise<Array<any>> {
 
-    let records: Array<any> = [];
+    let records: AiNoteEntry[] = [];
 
     const { chunk_size, chunk_overlap } = settings;
     const offset: number = chunk_size - chunk_overlap;
@@ -41,7 +40,7 @@ async function addChunksToDB(file: FileRecord, settings: AiNotesSettings, client
 
         let context_chunk: string;
         if (context.length > 0) {
-            context_chunk = `File: ${file.path}\nConext: ${context}\nDocument: ${chunk}`;
+            context_chunk = `File: ${file.path}\nContext: ${context}\nDocument: ${chunk}`;
         } else {
             context_chunk = `File: ${file.path}\nDocument: ${chunk}`;
         }
@@ -50,76 +49,55 @@ async function addChunksToDB(file: FileRecord, settings: AiNotesSettings, client
 
         if (settings.debug) console.log("Chunk hash:", chunk_hash);
 
-        const json_obj = {
+        // call ollama to generate embeddings
+        const embedding: Array<number> = await embed(context_chunk, settings);
+
+        const record: AiNoteEntry = {
+            id: Date.now(),
+            embedding: embedding,
+            timestamp: Date.now(),
+            file_path: file.path,
+            file_hash: file.hash,
+            chunk_length: chunk.trim().length,
+            chunk_hash: chunk_hash,
             contents: chunk,
             context: context,
             embed_model: settings.selected_embedding,
-        };
-        // call ollama to generate embeddings
-        const full_length: number = Math.ceil(context_chunk.length / 4);
-        const response = await ollama.embed({
-            model: settings.selected_embedding,
-            input: context_chunk,
-            options: {
-                num_ctx: settings.context_window < full_length ? full_length : settings.context_window,
-            }
-        });
-        const embedding: Array<number> = response.embeddings[0];
-
-        const record = {
-            chunk: json_obj,
-            chunk_length: chunk.trim().length,
-            timestamp: Date.now(),
-            file_path: file.path,
-            chunk_hash: chunk_hash,
-            file_hash: file.hash,
-            embedding: embedding,
             modified_time: file.modified_time,
-            id: Date.now(),
         };
         // store embeddings
         records.push(record);
     }
-    await insert(client, settings, records);
+    await bulkInsert(records, settings, "ai_notes");
 
     return records;
 }
 
-async function addFileToDB(file: FileRecord, settings: AiNotesSettings, client: MilvusClient): Promise<any> {
+async function addFileToDB(file: FileRecord, settings: AiNotesSettings): Promise<any> {
 
     if (settings.debug) {
         console.log("File hash:", file.hash);
         console.log("Content length:", file.contents.length);
     }
 
-    const ctx_size: number = Math.ceil(file.contents.length / 4);
-
     // call ollama to generate embeddings
-    const response = await ollama.embed({
-        model: settings.selected_embedding,
-        input: file.contents.length == 0 ? " " : file.contents,
-        options: {
-            num_ctx: settings.context_window > ctx_size ? settings.context_window : ctx_size,
-        }
-    });
+    const embedding: Array<number> = await embed(file.contents.length == 0 ? " " : file.contents, settings);
 
-    const embedding: Array<number> = response.embeddings[0];
-
-    const record = {
-        file_path: file.path,
-        file_hash: file.hash,
-        file_length: file.contents.trim().length,
-        embedding: embedding,
-        modified_time: file.modified_time,
+    const record: AiFileEntry = {
         id: Date.now(),
+        embedding: embedding,
+        file_hash: file.hash,
+        file_path: file.path,
+        file_length: file.contents.trim().length,
+        modified_time: file.modified_time,
     };
 
     // store embeddings
-    await insert(client, settings, record, "ai_notes_files");
+    await bulkInsert([record], settings, "ai_notes_files");
     return record;
 }
 
-export async function processFile(file: TFile, vault: Vault, settings: AiNotesSettings, client: MilvusClient) {
+export async function processFile(file: TFile, vault: Vault, settings: AiNotesSettings) {
 
     const contents = await vault.cachedRead(file);
 
@@ -132,10 +110,10 @@ export async function processFile(file: TFile, vault: Vault, settings: AiNotesSe
     };
 
     // add file to db
-    let file_output = await addFileToDB(file_record, settings, client);
+    let file_output = await addFileToDB(file_record, settings);
 
     // add chunks to db
-    let chunk_outputs = await addChunksToDB(file_record, settings, client);
+    let chunk_outputs = await addChunksToDB(file_record, settings);
 
     return {
         file_output,
@@ -144,18 +122,18 @@ export async function processFile(file: TFile, vault: Vault, settings: AiNotesSe
 
 }
 
-export async function registerFiles(vault: Vault, settings: AiNotesSettings, status_bar_item: HTMLElement, client: MilvusClient): Promise<boolean> {
+export async function registerFiles(vault: Vault, settings: AiNotesSettings, status_bar_item: HTMLElement): Promise<boolean> {
     const all_files: TFile[] = vault.getMarkdownFiles().filter((file) => {
         return !file.path.contains(`${settings.llm_folder}/`);
     });
 
-    const files: TFile[] = await findNewOrUpdatedFiles(client, settings, all_files);
+    const files: TFile[] = await findNewOrUpdatedFiles(all_files, settings);
 
     let i = all_files.length - files.length;
     status_bar_item.setText(`LLM(🔄${i}/${all_files.length})`);
 
     for (let file of files) {
-        await processFile(file, vault, settings, client);
+        await processFile(file, vault, settings);
         i += 1;
         status_bar_item.setText(`LLM(🔄${i}/${all_files.length})`)
     }

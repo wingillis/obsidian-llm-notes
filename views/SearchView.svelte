@@ -44,7 +44,7 @@
     <input class="llm-notes-search-input" type="text" bind:value={searchQuery} on:input={handleSearch} placeholder="Search notes..." />
 
     <div class="llm-notes-search-results">
-        {#each search_results as result (result.timestamp)}
+        {#each search_results as result}
             <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
             <div
                 class="tree-item-self is-clickable nav-file-title"
@@ -54,8 +54,8 @@
                 <div class="llm-notes-flex">
                     <div>{result.file_path.replace(".md", "")}</div>
                     <small class="llm-notes-summary">
-                        {#if result.chunk.contents.length > 0}
-                            {result.chunk.contents}
+                        {#if result.contents.length > 0}
+                            {result.contents}
                         {:else}
                             <i>File empty</i>
                         {/if}
