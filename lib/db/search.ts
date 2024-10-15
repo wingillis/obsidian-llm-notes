@@ -4,12 +4,6 @@ import type { AiFileEntry } from "lib/db/redis-interface";
 import { embed } from "lib/llm/process";
 import type { SearchReply } from "redis";
 
-function float32Buffer(arr: number[]): Buffer {
-    const floatArray = new Float32Array(arr);
-    const float32Buffer = Buffer.from(floatArray.buffer);
-    return float32Buffer;
-}
-
 export async function semanticSearchFromQuery(query: string, settings: AiNotesSettings): Promise<KnnSearchResult[]> {
     const embedding = await embed(query, settings);
     return await knnSearch(embedding, settings.similar_notes_search_limit, settings.similarity_threshold);
