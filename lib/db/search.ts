@@ -59,20 +59,15 @@ export async function getFileEntryByPath(file_path: string, settings: AiNotesSet
         // Perform a search using the file path
         const search_result = await client.ft.search(
             AI_NOTES_FILES_INDEX_KEY,
-            // `@file_path:"${escapedFilePath}"`,
             `@file_path:"${file_path}"`,
             {
-                LIMIT: {
-                    from: 0,
-                    size: 1
-                }
+                DIALECT: 2,
             }
         );
 
         if (search_result.total > 0) {
-            const entry = JSON.parse(search_result.documents[0].value as unknown as string);
-            if (settings.debug) console.log('Found file entry:', entry);
-            return entry as AiFileEntry;
+            if (settings.debug) console.log('Found file entry:', search_result);
+            return search_result.documents[0].value as unknown as AiFileEntry;
         } else {
             if (settings.debug) console.log('No file entry found for path:', file_path);
             return null;

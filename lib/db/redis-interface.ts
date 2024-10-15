@@ -73,72 +73,89 @@ export async function initializeRedis(settings: AiNotesSettings, force: boolean 
         const embeddingDim = await getEmbeddingDim(settings);
 
         const aiNotesSchema: RediSearchSchema = {
-            id: {
+            '$.id': {
                 type: SchemaFieldTypes.NUMERIC,
+                AS: 'id'
             },
-            embedding: {
+            '$.embedding': {
                 type: SchemaFieldTypes.VECTOR,
                 TYPE: 'FLOAT32',
                 ALGORITHM: VectorAlgorithms.FLAT, // flat for dsets < 1M items (likely true for obsidian notes)
                 DIM: embeddingDim,
                 DISTANCE_METRIC: 'COSINE',
+                AS: 'embedding'
             },
-            timestamp: {
+            '$.timestamp': {
                 type: SchemaFieldTypes.NUMERIC,
                 SORTABLE: true,
+                AS: 'timestamp'
             },
-            file_path: {
+            '$.file_path': {
                 type: SchemaFieldTypes.TEXT,
                 SORTABLE: true,
+                AS: 'file_path'
             },
-            file_hash: {
+            '$.file_hash': {
                 type: SchemaFieldTypes.TAG,
+                AS: 'file_hash'
             },
-            chunk_length: {
+            '$.chunk_length': {
                 type: SchemaFieldTypes.NUMERIC,
+                AS: 'chunk_length'
             },
-            chunk_hash: {
+            '$.chunk_hash': {
                 type: SchemaFieldTypes.TAG,
+                AS: 'chunk_hash'
             },
-            contents: {
+            '$.contents': {
                 type: SchemaFieldTypes.TEXT,
+                AS: 'contents'
             },
-            context: {
+            '$.context': {
                 type: SchemaFieldTypes.TEXT,
+                AS: 'context'
             },
-            embed_model: {
+            '$.embed_model': {
                 type: SchemaFieldTypes.TAG,
+                AS: 'embed_model'
             },
-            modified_time: {
+            '$.modified_time': {
                 type: SchemaFieldTypes.NUMERIC,
                 SORTABLE: true,
+                AS: 'modified_time'
             },
         };
 
         const aiNotesFilesSchema: RediSearchSchema = {
-            id: {
+            '$.id': {
                 type: SchemaFieldTypes.NUMERIC,
+                AS: 'id'
             },
-            embedding: {
+            '$.embedding': {
                 type: SchemaFieldTypes.VECTOR,
                 TYPE: 'FLOAT32',
                 ALGORITHM: VectorAlgorithms.FLAT,
                 DIM: embeddingDim,
                 DISTANCE_METRIC: 'COSINE',
+                AS: 'embedding'
             },
-            file_hash: {
+            '$.file_hash': {
                 type: SchemaFieldTypes.TAG,
+                AS: 'file_hash'
             },
-            file_path: {
+            '$.file_path': {
                 type: SchemaFieldTypes.TEXT,
                 SORTABLE: true,
+                AS: 'file_path'
             },
-            file_length: {
+            '$.file_length': {
                 type: SchemaFieldTypes.NUMERIC,
+                AS: 'file_length'
             },
-            modified_time: {
+            '$.modified_time': {
                 type: SchemaFieldTypes.NUMERIC,
                 SORTABLE: true,
+                AS: 'modified_time'
             },
         };
 
@@ -157,15 +174,13 @@ export async function initializeRedis(settings: AiNotesSettings, force: boolean 
 
         // Create new indices
         await nodeRedisClient.ft.create(AI_NOTES_INDEX_KEY, aiNotesSchema, {
-            // ON: 'JSON',
-            ON: 'HASH',
+            ON: 'JSON',
             PREFIX: AI_NOTES_KEY_PREFIX,
         });
         if (settings.debug) console.log(`Index ${AI_NOTES_INDEX_KEY} created`);
 
         await nodeRedisClient.ft.create(AI_NOTES_FILES_INDEX_KEY, aiNotesFilesSchema, {
-            // ON: 'JSON',
-            ON: 'HASH',
+            ON: 'JSON',
             PREFIX: AI_NOTES_FILES_KEY_PREFIX,
         });
         if (settings.debug) console.log(`Index ${AI_NOTES_FILES_INDEX_KEY} created`);
@@ -183,33 +198,7 @@ export async function bulkInsert(entries: AiNoteEntry[] | AiFileEntry[], setting
 
     for (const entry of entries) {
         const key = `${prefix}${entry.id}`;
-
-        if (collection_name === "ai_notes") {
-            const doc = entry as AiNoteEntry;
-            pipeline.hSet(key, {
-                id: entry.id,
-                embedding: Buffer.from(new Float32Array(doc.embedding).buffer),
-                timestamp: doc.timestamp,
-                file_path: doc.file_path,
-                file_hash: doc.file_hash,
-                chunk_length: doc.chunk_length,
-                chunk_hash: doc.chunk_hash,
-                contents: doc.contents,
-                context: doc.context,
-                embed_model: doc.embed_model,
-                modified_time: doc.modified_time,
-            });
-        } else {
-            const doc = entry as AiFileEntry;
-            pipeline.hSet(key, {
-                id: entry.id,
-                embedding: Buffer.from(new Float32Array(doc.embedding).buffer),
-                file_hash: doc.file_hash,
-                file_path: doc.file_path,
-                file_length: doc.file_length,
-                modified_time: doc.modified_time,
-            });
-        }
+        pipeline.json.set(key, '$', entry as any);
     }
 
     try {
@@ -221,22 +210,39 @@ export async function bulkInsert(entries: AiNoteEntry[] | AiFileEntry[], setting
     }
 }
 
+interface SlimDbRecord {
+    id: string;
+    modified_time: number;
+    file_path: string;
+}
+
 export async function findNewOrUpdatedFiles(files: TFile[], settings: AiNotesSettings): Promise<TFile[]> {
     const client = await getNodeRedisClient();
 
     const existing_files = await client.keys(`${AI_NOTES_FILES_KEY_PREFIX}*`);
     if (settings.debug) console.log('Total files in db:', existing_files.length);
+    if (settings.debug) console.log('Existing files:', existing_files);
 
     if (existing_files.length > 0) {
-        const response = await client.mGet(existing_files);
-        const file_data = response.filter(file => file !== null).map(file => JSON.parse(file as string));
-        const file_paths = file_data.map((file) => file.file_path);
+        const response = await client.json.mGet(existing_files, '$["file_path", "modified_time"]') as [string, number][];
+        // combine keys with response
+        const db_map: SlimDbRecord[] = existing_files.map((key, idx) => {
+            return {
+                id: key,
+                file_path: response[idx][0],
+                modified_time: response[idx][1],
+            } as SlimDbRecord;
+        });
+
+        if (settings.debug) console.log('Retrieved files from db:', response);
+        const file_paths = response.map(([file_path, _]) => file_path);
 
         const new_files: TFile[] = files.filter((file) => !file_paths.includes(file.path));
+        if (settings.debug) console.log('New files:', new_files);
 
         let updated_files: TFile[] = [];
-        let updated_db_files: AiFileEntry[] = [];
-        for (const file of file_data) {
+        let updated_db_files: SlimDbRecord[] = [];
+        for (const file of db_map) {
             const matched_file = files.find(f => f.path === file.file_path);
             const flag = matched_file && matched_file.stat.mtime > file.modified_time;
             if (flag) {
@@ -244,6 +250,7 @@ export async function findNewOrUpdatedFiles(files: TFile[], settings: AiNotesSet
                 updated_db_files.push(file);
             }
         }
+        if (settings.debug) console.log('Updated files:', updated_db_files);
 
         if (updated_files.length > 0) {
             // delete file entries
@@ -253,10 +260,14 @@ export async function findNewOrUpdatedFiles(files: TFile[], settings: AiNotesSet
 
             // delete chunk entries
             const updated_file_paths = updated_db_files.map(file => file.file_path);
+            const query = `@file_path:(${updated_file_paths.map(path => `"${path}"`).join('|')})`;
+
             const chunks_to_delete = await client.ft.search(
-                'idx:ai_notes',
-                `@file_path:(${updated_file_paths.join(' | ')})`,
-                { LIMIT: { from: 0, size: 1000000 } }
+                AI_NOTES_INDEX_KEY,
+                query,
+                {
+                    RETURN: ['$.id'],
+                }
             );
 
             if (chunks_to_delete.total > 0) {
