@@ -24,7 +24,7 @@ LLM notes is an Obsidian plugin that integrates **private** and **local** large 
 
 ### Install the plugin for use
 
-1. Download the release files from the [releases page]() and place them in your Obsidian vault's `.obsidian/plugins` directory. The 2 files you need are:
+1. Download the release files from the [releases page](https://github.com/wingillis/obsidian-llm-notes/releases) and place them in your Obsidian vault's `.obsidian/plugins` directory. The 2 files you need are:
    - `manifest.json`
    - `main.js`
 2. Make sure you have Redis installed and running. [See below](#redisdocker) for instructions on how to set up Redis with Docker.
