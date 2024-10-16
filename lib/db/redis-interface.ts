@@ -13,7 +13,7 @@ const AI_NOTES_KEY_PREFIX: string = 'ai_notes:';
 export const AI_NOTES_INDEX_KEY: string = 'idx:ai_notes';
 export const AI_NOTES_FILES_KEY_PREFIX: string = 'ai_notes_files:';
 export const AI_NOTES_FILES_INDEX_KEY: string = 'idx:ai_notes_files';
-const REDIS_URI = 'redis://:wingillis@localhost:6379';
+const REDIS_URI = 'redis://:obsidian@localhost:6379';
 
 export interface AiNoteEntry {
     id: number;

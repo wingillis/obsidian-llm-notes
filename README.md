@@ -17,42 +17,42 @@ LLM notes is an Obsidian plugin that integrates **private** and **local** large 
 
 - Currently, this plugin must be installed manually. There are a few issues with dependencies that I need to resolve before I can publish it to the Obsidian community plugins service.
 - **Only ollama will be supported** for LLM interactions. This greatly reduces the complexity of this plugin.
-- Milvus is required - without it, the plugin will not work.
-- There aren't sophisticated error handling procedures in place yet. You need to make sure you install and set up all the requirements before trying to use the plugin.
+- Redis is required to store vector embeddings of each note - without it, the plugin will not work.
+- There aren't sophisticated error handling procedures in place yet. The process of setting up the plugin may be difficult or confusing.
 
 ## Installation and requirements
 
-### Plugin
+### Install the plugin for use
 
-1. Download this plugin and extract it to your Obsidian vault's `.obsidian/plugins` directory.
-2. Make sure node is installed on your system.
-3. Run `npm install` in the plugin's directory to install the dependencies.
-4. Run `npm run build` to build the plugin, creating the necessary `main.js` file.
+1. Download the release files from the [releases page]() and place them in your Obsidian vault's `.obsidian/plugins` directory. The 3 files you need are:
+   - `manifest.json`
+   - `main.js`
+   - `styles.css`
+2. Make sure you have Redis installed and running. [See below](#redisdocker) for instructions on how to set up Redis with Docker.
+3. Make sure you have `ollama` installed and running. [See below](#ollama) for instructions on how to set up `ollama`.
+4. When you first start up Obsidian and enable the plugin, you need to go to the settings tab, select a language model and embedding model, and click the "Start plugin" button.
 
-**Don't enable the plugin in Obsidian yet - we need to set up `ollama` and `milvus` first.**
+### Install the plugin for development
 
-### Milvus/Docker
+### Redis/Docker
 
-Milvus is a performant vector database that LLM notes uses to store note embeddings.
+Redis is a performant vector database that LLM notes uses to store note embeddings.
 
 1. Install Docker on your system.
-2. Follow the installation instructions for `milvus` [here](https://milvus.io/docs/install_standalone-docker.md).
-
-Start the `milvus` container with the following command (also found in the installation instructions):
+2. Run the following command to create and start a Redis container:
 
 ```bash
-curl -sfL https://raw.githubusercontent.com/milvus-io/milvus/master/scripts/standalone_embed.sh -o standalone_embed.sh
-
-bash standalone_embed.sh start
+docker run -p 6379:6379 -d -e REDIS_ARGS="--requirepass obsidian" -v ./redis-data:/data --name redis redis/redis-stack-server:latest
 ```
 
-If you feel uncomfortable running this script, I encourage you to read it first, and/or analyze the contents with your favorite LLM.
+This command creates a Redis container with the password `obsidian` and mounts to a local folder (`redis-data/`) to save the database locally.
+Mounting a local folder is optional, but it's useful if you delete or switch between Redis containers.
 
 ### ollama
 
 1. Follow the installation instructions for `ollama` [here](https://ollama.com/download).
 If on a Mac, you can also install `ollama` with [Homebrew](https://formulae.brew.sh/formula/ollama) `brew install ollama`.
-2. Run the server if it's not already running: `ollama serve`. I prefer to use flash when running the server:
+2. Run the server if it's not already running: `ollama serve`. I prefer to use flash attention when running the server:
 
 ```bash
 OLLAMA_FLASH_ATTENTION=true ollama serve
@@ -64,16 +64,8 @@ I recommend `llama3.2` for your LLM and `nomic-embed-text` or `snowflake-arctic-
 ```bash
 # in a new terminal window while "ollama serve" is running
 ollama pull nomic-embed-text  # or ollama pull snowflake-arctic-embed:137m
-ollama pull llama3.2
+ollama pull llama3.2  # downloads the 3b version
 ```
-
-### Plugin (continued)
-
-Once you have `ollama` and `milvus` set up and running, you can enable the plugin in Obsidian.
-
-However, the first time you run the plugin will fail because you haven't selected a language model yet.
-First, open the settings for the plugin and select the language model you want to use.
-Then, restart Obsidian and the plugin should work.
 
 ## Features
 
@@ -91,7 +83,7 @@ Chat with an LLM that has access to your Obsidian vault.
 Using the Chat view, you can interact with your notes in a few supported ways:
 
 1. using the `@workspace` command to select the most relevant notes in your Obsidian vault to respond to your query.
-2. by inserting links to individual files from your Obsidian vault using the wikilinks syntax, i.e. [[folder/note_path]].
+2. by inserting links to individual files from your Obsidian vault using the wikilinks syntax, i.e. `[[folder/note_path]]`.
 
 **Note**: you can use only one of these methods at a time.
 
@@ -121,8 +113,8 @@ This feature opens a view that shows the most similar notes to the current note.
 
 ### First-time setup
 
-The first time you use the plugin, it will create a `milvus` database to store note embeddings.
-The embedding generation process can take a long time, because I implemented a version of [Anthropic's contextual retrieval technique](https://www.anthropic.com/news/contextual-retrieval) to improve RAG output.
+The first time you use the plugin, it will connect to your redis instance and populate the database to store note embeddings and metadata.
+The embedding generation process can take a long time, because I implemented a poor-man's version of [Anthropic's contextual retrieval technique](https://www.anthropic.com/news/contextual-retrieval) to improve RAG output.
 
 If you don't want to use this feature, you can disable it in the settings.
 
@@ -140,7 +132,7 @@ LLM chat adds a few commands to the command palette:
 
 Some ideas I have for future development:
 
-- Add generation capabilities to the editor
+- Add `@folder` command to chat
 - Better error handling
 - PDF support
 
