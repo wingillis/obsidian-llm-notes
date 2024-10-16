@@ -40,7 +40,7 @@ const context = await esbuild.context({
 	sourcemap: prod ? false : "inline",
 	treeShaking: true,
 	outfile: "main.js",
-	minify: false,
+	minify: prod,
 	plugins: [
 	  esbuildSvelte({
 		compilerOptions: { css: 'injected' },

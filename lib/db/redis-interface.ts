@@ -101,6 +101,7 @@ export async function initializeRedis(settings: AiNotesSettings, force: boolean 
             },
             '$.chunk_length': {
                 type: SchemaFieldTypes.NUMERIC,
+                SORTABLE: true,
                 AS: 'chunk_length'
             },
             '$.chunk_hash': {

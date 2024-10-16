@@ -58,6 +58,12 @@
         width: 100%;
     }
 
+    .llm-notes-search-results {
+        overflow-y: auto;
+        height: 100%;
+        /* display: flex; */
+    }
+
     small.llm-notes-summary {
         text-overflow: ellipsis;
         overflow: hidden;

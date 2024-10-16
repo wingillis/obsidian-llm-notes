@@ -17,9 +17,9 @@ export async function knnSearch(file_path: string, embedding: number[], k_neighb
 
     let searchQuery: string;
     if (file_path === "") {
-        searchQuery = `*=>[KNN ${k_neighbors} @embedding $searchBlob AS score]`;
+        searchQuery = `(@chunk_length:[1 +inf])=>[KNN ${k_neighbors} @embedding $searchBlob AS score]`;
     } else {
-        searchQuery = `(@file_path:(-"${file_path}"))=>[KNN ${k_neighbors} @embedding $searchBlob AS score]`;
+        searchQuery = `(@file_path:(-"${file_path}") @chunk_length:[1 +inf])=>[KNN ${k_neighbors} @embedding $searchBlob AS score]`;
     }
 
     const results: SearchReply = await client.ft.search(AI_NOTES_INDEX_KEY, searchQuery, {
