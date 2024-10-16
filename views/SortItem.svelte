@@ -34,21 +34,23 @@
 
 </script>
 
-<h4>Similar notes</h4>
-<div class="llm-notes-search-results">
-    {#each note_sections as result (result.timestamp)}
-        <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
-        <div
-            class="tree-item-self is-clickable nav-file-title"
-            on:click={(e) => handleResultClick(e, result.file)}
-            role="contentinfo"
-        >
-            <div class="llm-notes-flex">
-                <div>{result.file_path.replace(".md", "")}</div>
-                <small class="llm-notes-summary">{result.contents}</small>
+<div class="llm-notes-container">
+    <h4>Similar notes</h4>
+    <div class="llm-notes-search-results">
+        {#each note_sections as result (result.timestamp)}
+            <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
+            <div
+                class="tree-item-self is-clickable nav-file-title"
+                on:click={(e) => handleResultClick(e, result.file)}
+                role="contentinfo"
+            >
+                <div class="llm-notes-flex">
+                    <div>{result.file_path.replace(".md", "")}</div>
+                    <small class="llm-notes-summary">{result.contents}</small>
+                </div>
             </div>
-        </div>
-    {/each}
+        {/each}
+    </div>
 </div>
 
 <style>
@@ -58,10 +60,15 @@
         width: 100%;
     }
 
+    .llm-notes-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
     .llm-notes-search-results {
         overflow-y: auto;
         height: 100%;
-        /* display: flex; */
     }
 
     small.llm-notes-summary {

@@ -73,6 +73,7 @@ export default class AiNotes extends Plugin {
 			this.app.workspace.onLayoutReady(async () => {
 				this.registering_files = true;
 				try {
+					this.fileOpened(this.app.workspace.getActiveFile());
 					await registerFiles(this.app.vault, this.settings, this.status_bar_item);
 				} catch (e) {
 					console.error(e);
