@@ -24,15 +24,22 @@ LLM notes is an Obsidian plugin that integrates **private** and **local** large 
 
 ### Install the plugin for use
 
-1. Download the release files from the [releases page]() and place them in your Obsidian vault's `.obsidian/plugins` directory. The 3 files you need are:
+1. Download the release files from the [releases page]() and place them in your Obsidian vault's `.obsidian/plugins` directory. The 2 files you need are:
    - `manifest.json`
    - `main.js`
-   - `styles.css`
 2. Make sure you have Redis installed and running. [See below](#redisdocker) for instructions on how to set up Redis with Docker.
 3. Make sure you have `ollama` installed and running. [See below](#ollama) for instructions on how to set up `ollama`.
 4. When you first start up Obsidian and enable the plugin, you need to go to the settings tab, select a language model and embedding model, and click the "Start plugin" button.
 
 ### Install the plugin for development
+
+1. Clone this repository to your local machine.
+2. Make sure node/npm is installed on your system.
+3. Run `npm install` in the root directory of the repository.
+4. Run `npm run dev` to compile the plugin and continuously watch for file changes.
+
+Note: each time you make a change to the plugin, you need to refresh the plugin within the Obsidian app to see the changes.
+Obsidian recommends installing the "hot reload" plugin to automate this process.
 
 ### Redis/Docker
 
@@ -42,11 +49,12 @@ Redis is a performant vector database that LLM notes uses to store note embeddin
 2. Run the following command in your terminal to create and start a Redis container:
 
 ```bash
-docker run -p 6379:6379 -d -e REDIS_ARGS="--requirepass obsidian" -v ./redis-data:/data --name redis redis/redis-stack-server:latest
+docker run -p 6379:6379 -d -e REDIS_ARGS="--requirepass obsidian" -v ./redis-data:/data --restart unless-stopped --name redis redis/redis-stack-server:latest
 ```
 
 This command creates a Redis container with the password `obsidian` and mounts to a local folder (`redis-data/`) to save the database locally.
 Mounting a local folder is optional, but it's useful if you delete or switch between Redis containers.
+Whenever you quit and re-open docker, the redis container will automatically restart.
 
 ### ollama
 
