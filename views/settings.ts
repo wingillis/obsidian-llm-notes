@@ -112,7 +112,7 @@ export default class AiNotesSettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Use context for embeddings')
-			.setDesc('Include document context for chunk-level embeddings. WARNING: document processing for search is significantly slower when enabled.')
+			.setDesc('Include document context for chunk-level embeddings. WARNING: document embedding is significantly slower when enabled.')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.use_context)
 				.onChange(async (value) => {
