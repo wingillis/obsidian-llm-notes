@@ -290,6 +290,55 @@ export async function findNewOrUpdatedFiles(files: TFile[], settings: AiNotesSet
     return files;
 }
 
+export async function findMovedOrDeletedFiles(files: TFile[], settings: AiNotesSettings): Promise<boolean> {
+    const client = await getNodeRedisClient();
+
+    const existing_files = await client.keys(`${AI_NOTES_FILES_KEY_PREFIX}*`);
+    if (settings.debug) console.log('Total files in db:', existing_files.length);
+
+    if (existing_files.length > 0) {
+        const file_paths = files.map(file => file.path);
+        const response = await client.json.mGet(existing_files, '$.file_path') as any;
+        const db_map: {id: string, file_path: string }[] = existing_files.map((key, idx) => {
+            return {
+                id: key,
+                file_path: response[idx][0],
+            };
+        });
+        const dangling_files = db_map.filter(file => !file_paths.includes(file.file_path));
+        if (settings.debug) console.log('Dangling files:', dangling_files);
+        if (dangling_files.length > 0) {
+            const dangling_keys = dangling_files.map(file => file.id);
+            // delete entries
+            const response = await client.del(dangling_keys);
+            if (settings.debug) console.log('Deleted dangling files from db:', response);
+
+            const query = `@file_path:(${dangling_files.map(file => `"${file.file_path}"`).join(' | ')})`;
+            if (settings.debug) console.log('Query:', query);
+
+            const chunks_to_delete = await client.ft.search(
+                AI_NOTES_INDEX_KEY,
+                query,
+                {
+                    RETURN: ['$.id'],
+                    DIALECT: 2,
+                    LIMIT: { from: 0, size: 10000 },
+                }
+            );
+            if (settings.debug) console.log('Chunks to delete:', chunks_to_delete);
+
+            if (chunks_to_delete.total > 0) {
+                const chunk_keys = chunks_to_delete.documents.map(doc => doc.id);
+                const response = await client.del(chunk_keys);
+                if (settings.debug) console.log('Deleted updated chunks from db:', response);
+            }
+        }
+        return dangling_files.length > 0;
+    }
+
+    return false;
+}
+
 export async function closeConnection() {
     if (nodeRedisClient) {
         await nodeRedisClient.quit();

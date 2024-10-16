@@ -5,7 +5,7 @@ import { type AiNotesSettings, DEFAULT_SETTINGS } from 'views/settings';
 import { SimilarityView, AiChatView, AiNotesSearchModal, VIEW_TYPE_AI_CHAT, VIEW_TYPE_AI_NOTES } from 'views/item_views';
 import { chatWithFiles, findSimilarChunksFromQuery, findSimilarFileChunks } from 'lib/actions';
 import { registerFiles } from 'lib/db/records';
-import { closeConnection, initializeRedis } from 'lib/db/redis-interface';
+import { closeConnection, initializeRedis, findMovedOrDeletedFiles } from 'lib/db/redis-interface';
 import ollama from 'ollama';
 
 export interface AiNoteSections {
@@ -101,7 +101,17 @@ export default class AiNotes extends Plugin {
 					if (this.settings.debug) console.log("Already registering files");
 					this.fileOpened(this.app.workspace.getActiveFile());
 				}
-			}, 60000));
+			}, 60000));  // 1 minute
+
+			// run infrequently to check for moved or deleted files
+			this.registerInterval(window.setInterval(async () => {
+				if (this.settings.debug) console.log("Total number of files", this.app.vault.getMarkdownFiles().length);
+				const all_files: TFile[] = this.app.vault.getMarkdownFiles().filter((file) => {
+					return !file.path.contains(`${this.settings.llm_folder}/`);
+				});
+				const found: boolean = await findMovedOrDeletedFiles(all_files, this.settings);
+				if (this.settings.debug) console.log("Found moved or deleted files:", found);
+			}, 15 * 60 * 1000));  // 15 minutes
 		}
 	}
 
