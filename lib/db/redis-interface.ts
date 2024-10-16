@@ -254,27 +254,33 @@ export async function findNewOrUpdatedFiles(files: TFile[], settings: AiNotesSet
 
         if (updated_files.length > 0) {
             // delete file entries
-            const updated_keys = updated_db_files.map((file) => `${AI_NOTES_FILES_KEY_PREFIX}${file.id}`);
-            await client.del(updated_keys);
-            if (settings.debug) console.log('Deleted updated files from db:', updated_keys.length);
+            const updated_keys = updated_db_files.map(file => file.id);
+            const response = await client.del(updated_keys);
+            if (settings.debug) console.log('Delete response', response);
 
             // delete chunk entries
             const updated_file_paths = updated_db_files.map(file => file.file_path);
-            const query = `@file_path:(${updated_file_paths.map(path => `"${path}"`).join('|')})`;
+            const query = `@file_path:(${updated_file_paths.map(path => `"${path}"`).join(' | ')})`;
+            if (settings.debug) console.log('Query:', query);
 
             const chunks_to_delete = await client.ft.search(
                 AI_NOTES_INDEX_KEY,
                 query,
                 {
                     RETURN: ['$.id'],
+                    DIALECT: 2,
+                    LIMIT: { from: 0, size: 10000 },
                 }
             );
+            if (settings.debug) console.log('Chunks to delete:', chunks_to_delete);
 
             if (chunks_to_delete.total > 0) {
                 const chunk_keys = chunks_to_delete.documents.map(doc => doc.id);
-                await client.del(chunk_keys);
-                if (settings.debug) console.log('Deleted updated chunks from db:', chunk_keys.length);
+                const response = await client.del(chunk_keys);
+                if (settings.debug) console.log('Deleted updated chunks from db:', response);
             }
+            // for updated files, make sure there aren't duplicate entries, by looking at the file path
+            updated_files = updated_files.filter((file, idx) => updated_files.findIndex(f => f.path === file.path) === idx);
         }
 
         return [...new_files, ...updated_files];

@@ -4,11 +4,6 @@ import type { AiFileEntry } from "lib/db/redis-interface";
 import { embed } from "lib/llm/process";
 import type { SearchReply } from "redis";
 
-export async function semanticSearchFromQuery(query: string, settings: AiNotesSettings): Promise<KnnSearchResult[]> {
-    const embedding = await embed(query, settings);
-    return await knnSearch(embedding, settings.similar_notes_search_limit, settings.similarity_threshold);
-}
-
 export interface KnnSearchResult {
     score: number,
     file_path: string,
@@ -17,10 +12,15 @@ export interface KnnSearchResult {
     timestamp: number
 }
 
-export async function knnSearch(embedding: number[], k_neighbors: number, score_threshold: number): Promise<KnnSearchResult[]> {
+export async function knnSearch(file_path: string, embedding: number[], k_neighbors: number, score_threshold: number): Promise<KnnSearchResult[]> {
     const client = await getNodeRedisClient();
 
-    const searchQuery: string = `*=>[KNN ${k_neighbors} @embedding $searchBlob AS score]`;
+    let searchQuery: string;
+    if (file_path === "") {
+        searchQuery = `*=>[KNN ${k_neighbors} @embedding $searchBlob AS score]`;
+    } else {
+        searchQuery = `(@file_path:(-"${file_path}"))=>[KNN ${k_neighbors} @embedding $searchBlob AS score]`;
+    }
 
     const results: SearchReply = await client.ft.search(AI_NOTES_INDEX_KEY, searchQuery, {
         PARAMS: {
@@ -29,16 +29,18 @@ export async function knnSearch(embedding: number[], k_neighbors: number, score_
         RETURN: ['score', 'file_path', 'contents', 'id', 'timestamp'],
         SORTBY: {
             BY: 'score',
+            DIRECTION: 'ASC',
         },
         DIALECT: 2,
+        LIMIT: { from: 0, size: k_neighbors },
     });
 
     // process search results into an array of KnnSearchResult objects
     const processed_results: KnnSearchResult[] = results.documents.filter((result: any) => {
-        return result.value.score >= score_threshold;
+        return result.value.score <= score_threshold;
     }).map((result: any) => {
         return {
-            score: result.value.score,
+            score: 1 - result.value.score,  // convert cosine distance to similarity score
             file_path: result.value.file_path,
             contents: result.value.contents,
             id: result.value.id,
@@ -53,9 +55,6 @@ export async function getFileEntryByPath(file_path: string, settings: AiNotesSet
     const client = await getNodeRedisClient();
 
     try {
-        // Escape special characters in the file path
-        // const escapedFilePath = file_path.replace(/[^a-zA-Z0-9]/g, '\\$&');
-
         // Perform a search using the file path
         const search_result = await client.ft.search(
             AI_NOTES_FILES_INDEX_KEY,

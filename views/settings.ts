@@ -26,7 +26,7 @@ export const DEFAULT_SETTINGS: Partial<AiNotesSettings> = {
 	use_context: true,
 	context_window: 8192,
 	similar_notes_search_limit: 15,
-	similarity_threshold: 0.25,
+	similarity_threshold: 0.75,  // smaller values mean more similar
 	llm_folder: 'llm-chats',
 	start_application: false,
 	debug: false,
@@ -145,7 +145,7 @@ export default class AiNotesSettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Similarity threshold')
-			.setDesc('Set the similarity threshold for filtering useful search results')
+			.setDesc('Set the similarity threshold for filtering useful search results. Smaller values mean more similar.')
 			.addText(text => text
 				.setPlaceholder('Enter similarity threshold')
 				.setValue(`${this.plugin.settings.similarity_threshold}`)

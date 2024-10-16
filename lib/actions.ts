@@ -22,7 +22,7 @@ export async function findSimilarFileChunks(vault: Vault, settings: AiNotesSetti
 
     let file_embedding: number[] = file_res.embedding;
     // get similar embeddings from db
-    const results: KnnSearchResult[] = await knnSearch(file_embedding, settings.similar_notes_search_limit, settings.similarity_threshold);
+    const results: KnnSearchResult[] = await knnSearch(file.path, file_embedding, settings.similar_notes_search_limit, settings.similarity_threshold);
     if (settings.debug) console.log("Similar chunk results:", results);
 
     // process entries from db, include TFile from obsidian
@@ -48,7 +48,7 @@ export async function findSimilarChunksFromQuery(vault: Vault, settings: AiNotes
 
     const embedding = await embed(query, settings);
     if (settings.debug) console.log("Search query embedding:", embedding);
-    const similar_chunks: KnnSearchResult[] = await knnSearch(embedding, 150, settings.similarity_threshold);
+    const similar_chunks: KnnSearchResult[] = await knnSearch("", embedding, 150, settings.similarity_threshold);
 
     if (settings.debug) console.log("Search query:", query, "similar chunk results:", similar_chunks);
 
@@ -231,7 +231,7 @@ async function workspaceRAG(query: string, settings: AiNotesSettings) {
     query = query.replace(/@workspace\s?/g, "");
 
     const embedding: number[] = await embed(query, settings);
-    const similar_chunks: KnnSearchResult[] = await knnSearch(embedding, 150, settings.similarity_threshold);
+    const similar_chunks: KnnSearchResult[] = await knnSearch("", embedding, 150, settings.similarity_threshold);
 
     if (settings.debug) console.log("Workspace RAG search results:", similar_chunks);
 

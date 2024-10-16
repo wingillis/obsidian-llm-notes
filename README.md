@@ -39,7 +39,7 @@ LLM notes is an Obsidian plugin that integrates **private** and **local** large 
 Redis is a performant vector database that LLM notes uses to store note embeddings.
 
 1. Install Docker on your system.
-2. Run the following command to create and start a Redis container:
+2. Run the following command in your terminal to create and start a Redis container:
 
 ```bash
 docker run -p 6379:6379 -d -e REDIS_ARGS="--requirepass obsidian" -v ./redis-data:/data --name redis redis/redis-stack-server:latest
