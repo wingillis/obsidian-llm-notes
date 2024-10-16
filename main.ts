@@ -72,24 +72,36 @@ export default class AiNotes extends Plugin {
 
 			this.app.workspace.onLayoutReady(async () => {
 				this.registering_files = true;
-				await registerFiles(this.app.vault, this.settings, this.status_bar_item);
-				this.registering_files = false;
+				try {
+					await registerFiles(this.app.vault, this.settings, this.status_bar_item);
+				} catch (e) {
+					console.error(e);
+					this.status_bar_item.setText('LLM(❌)');
+				} finally {
+					this.registering_files = false;
+				}
 			});
 
 			// periodically check for modified files every 45 seconds
 			this.registerInterval(window.setInterval(async () => {
 				if (!this.registering_files) {
 					this.registering_files = true;
-					const has_updates: boolean = await registerFiles(this.app.vault, this.settings, this.status_bar_item);
-					if (has_updates) {
-						this.fileOpened(this.app.workspace.getActiveFile());
+					try {
+						const has_updates: boolean = await registerFiles(this.app.vault, this.settings, this.status_bar_item);
+						if (has_updates) {
+							this.fileOpened(this.app.workspace.getActiveFile());
+						}
+					} catch (e) {
+						console.error(e);
+						this.status_bar_item.setText('LLM(❌)');
+					} finally {
+						this.registering_files = false;
 					}
-					this.registering_files = false;
 				} else {
 					if (this.settings.debug) console.log("Already registering files");
 					this.fileOpened(this.app.workspace.getActiveFile());
 				}
-			}, 45000));
+			}, 60000));
 		}
 	}
 
